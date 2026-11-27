@@ -17,5 +17,330 @@
     "elevated": false,
     "detect": false
   },
-  "summary": "기본 전투. 저렴하고 경로마다 역할이 다르다."
+  "summary": "기본 전투. 저렴하고 경로마다 역할이 다르다.",
+  "paths": {
+    "A": [
+      {
+        "name": "고속 급탄",
+        "cost": 120,
+        "text": "연사 +60%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "fireInterval",
+            "value": 0.625
+          }
+        ]
+      },
+      {
+        "name": "철갑탄",
+        "cost": 200,
+        "text": "장갑 관통 50%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "armorPen",
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "name": "MK-II 쌍열 포탑",
+        "cost": 400,
+        "text": "2발 동시 발사, 발당 피해 4→5.5",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "multishot",
+            "value": 2
+          },
+          {
+            "op": "set",
+            "stat": "damage",
+            "value": 5.5
+          }
+        ]
+      },
+      {
+        "name": "집중 사격",
+        "cost": 900,
+        "text": "연사 +80%, 같은 적 연속 명중마다 피해 +15% (최대 5중첩)",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "fireInterval",
+            "value": 0.555
+          },
+          {
+            "op": "set",
+            "stat": "focusStep",
+            "value": 0.15
+          },
+          {
+            "op": "set",
+            "stat": "focusMax",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "name": "APEX HAILSTORM",
+        "cost": 2400,
+        "text": "회전포: 초당 12발, 발당 피해 10",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "multishot",
+            "value": 1
+          },
+          {
+            "op": "set",
+            "stat": "fireInterval",
+            "value": 0.0833
+          },
+          {
+            "op": "set",
+            "stat": "damage",
+            "value": 10
+          },
+          {
+            "op": "set",
+            "stat": "projectileSpeed",
+            "value": 18
+          }
+        ]
+      },
+      {
+        "name": "VANGUARD-Ω",
+        "cost": 7000,
+        "text": "능력 포화 사격: 8초간 사거리 안 모든 적, 재사용 60s",
+        "kind": "새 능력",
+        "effects": [
+          {
+            "op": "ability",
+            "id": "saturation",
+            "cooldown": 60,
+            "energy": 0,
+            "params": {
+              "duration": 8
+            }
+          }
+        ]
+      }
+    ],
+    "B": [
+      {
+        "name": "고각 포가",
+        "cost": 120,
+        "text": "높이 획득: 고가 구간·비행형 공격",
+        "kind": "표적 규칙",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "elevated",
+            "value": true
+          },
+          {
+            "op": "set",
+            "stat": "antiAir",
+            "value": true
+          }
+        ]
+      },
+      {
+        "name": "광학 조준경",
+        "cost": 200,
+        "text": "사거리 +25%, 연사 +20%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "range",
+            "value": 1.25
+          },
+          {
+            "op": "mul",
+            "stat": "fireInterval",
+            "value": 0.8333
+          }
+        ]
+      },
+      {
+        "name": "MK-II 표식 포탑",
+        "cost": 400,
+        "text": "맞은 적 4초 표식: 모든 아군에게 받는 피해 +25%, 은폐 해제",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "markDuration",
+            "value": 4
+          },
+          {
+            "op": "set",
+            "stat": "markBonus",
+            "value": 0.25
+          }
+        ]
+      },
+      {
+        "name": "표식 전파",
+        "cost": 900,
+        "text": "표식된 적 처치 시 2칸 안 적에게 표식 이동",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "markSpread",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "name": "APEX WARDEN",
+        "cost": 2400,
+        "text": "점착탄: 맞은 적 0.5초 고정 (같은 적 3초에 1회)",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "rootTime",
+            "value": 0.5
+          },
+          {
+            "op": "set",
+            "stat": "rootBoss",
+            "value": 0.15
+          },
+          {
+            "op": "set",
+            "stat": "rootCooldown",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "name": "AEGIS-Ω",
+        "cost": 7000,
+        "text": "능력 차단장: 경로 6초 차단, 재사용 50s",
+        "kind": "새 능력",
+        "effects": [
+          {
+            "op": "ability",
+            "id": "barrier",
+            "cooldown": 50,
+            "energy": 0,
+            "params": {
+              "duration": 6
+            }
+          }
+        ]
+      }
+    ],
+    "C": [
+      {
+        "name": "신호 증폭기",
+        "cost": 120,
+        "text": "사거리 안 은폐형 탐지",
+        "kind": "표적 규칙",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "detect",
+            "value": true
+          }
+        ]
+      },
+      {
+        "name": "원격 사격 통제",
+        "cost": 200,
+        "text": "사거리 +15%, 연사 +50%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "range",
+            "value": 1.15
+          },
+          {
+            "op": "mul",
+            "stat": "fireInterval",
+            "value": 0.6667
+          }
+        ]
+      },
+      {
+        "name": "MK-II 전술 중계",
+        "cost": 400,
+        "text": "주변 2.5칸 아군 사거리 +15%, 은폐 탐지 공유",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "aura",
+            "buff": "range",
+            "value": 0.15,
+            "radius": 2.5
+          },
+          {
+            "op": "aura",
+            "buff": "detect",
+            "value": 1,
+            "radius": 2.5
+          }
+        ]
+      },
+      {
+        "name": "탄약 공급선",
+        "cost": 900,
+        "text": "주변 2.5칸 운동 계열 아군 연사 +35%",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "aura",
+            "buff": "attackSpeed",
+            "value": 0.35,
+            "radius": 2.5,
+            "filter": "kinetic"
+          }
+        ]
+      },
+      {
+        "name": "APEX 지휘 노드",
+        "cost": 2400,
+        "text": "주변 3칸 아군이 이 유닛의 표적 우선, 그 표적에 피해 +30%",
+        "kind": "표적 규칙",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "commandRadius",
+            "value": 3
+          },
+          {
+            "op": "set",
+            "stat": "commandBonus",
+            "value": 0.3
+          }
+        ]
+      },
+      {
+        "name": "COMMAND-Ω",
+        "cost": 7000,
+        "text": "반경 3칸 모든 아군 능력 재사용 −30%",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "aura",
+            "buff": "cooldown",
+            "value": 0.3,
+            "radius": 3
+          }
+        ]
+      }
+    ]
+  }
 }

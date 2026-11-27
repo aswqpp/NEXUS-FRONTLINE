@@ -24,7 +24,52 @@ export interface UnitBase {
   slowDuration: number
   elevated: boolean
   detect: boolean
+  antiAir: boolean
+  /** projectiles per shot (twin barrels) */
+  multishot: number
+  /** focus fire: +step damage per consecutive hit on the same enemy, up to max stacks */
+  focusStep: number
+  focusMax: number
+  /** mark on hit: duration, damage-taken bonus for everyone, spread radius on kill */
+  markDuration: number
+  markBonus: number
+  markSpread: number
+  /** root on hit (sticky rounds) */
+  rootTime: number
+  rootBoss: number
+  rootCooldown: number
+  /** command node: allies in radius prefer this unit's target and deal +bonus to it */
+  commandRadius: number
+  commandBonus: number
 }
+
+export type NumStat = { [K in keyof UnitBase]: UnitBase[K] extends number ? K : never }[keyof UnitBase]
+export type BoolStat = { [K in keyof UnitBase]: UnitBase[K] extends boolean ? K : never }[keyof UnitBase]
+export const NUM_STATS: NumStat[] = [
+  'damage', 'fireInterval', 'range', 'pierce', 'armorPen', 'projectileSpeed', 'chain', 'chainRange', 'chainFalloff',
+  'slow', 'slowDuration', 'multishot', 'focusStep', 'focusMax', 'markDuration', 'markBonus', 'markSpread',
+  'rootTime', 'rootBoss', 'rootCooldown', 'commandRadius', 'commandBonus',
+]
+export const BOOL_STATS: BoolStat[] = ['elevated', 'detect', 'antiAir']
+export const BUFFS = ['range', 'attackSpeed', 'damage', 'detect', 'cooldown'] as const
+export type BuffType = (typeof BUFFS)[number]
+
+export type Effect =
+  | { op: 'mul' | 'add'; stat: NumStat; value: number }
+  | { op: 'set'; stat: NumStat | BoolStat; value: number | boolean }
+  | { op: 'aura'; buff: BuffType; value: number; radius: number; filter?: DamageType }
+  | { op: 'ability'; id: string; cooldown: number; energy: number; params: Record<string, number> }
+
+export interface Upgrade {
+  name: string
+  cost: number
+  text: string
+  kind: string
+  effects: Effect[]
+}
+
+export type PathId = 'A' | 'B' | 'C'
+export const PATHS: PathId[] = ['A', 'B', 'C']
 
 export interface UnitDef {
   id: string
@@ -35,6 +80,8 @@ export interface UnitDef {
   footprint: number
   base: UnitBase
   summary: string
+  /** 3 paths x up to 6 steps; empty arrays until a unit's paths are written */
+  paths: Record<PathId, Upgrade[]>
 }
 
 export interface EnemyDef {
@@ -208,11 +255,73 @@ function readUnit(r: Reader, v: unknown): UnitDef {
       slowDuration: r.num(b, 'slowDuration', bp, { min: 0, def: 0 }),
       elevated: r.bool(b, 'elevated', bp),
       detect: r.bool(b, 'detect', bp),
+      antiAir: r.bool(b, 'antiAir', bp),
+      multishot: r.num(b, 'multishot', bp, { min: 1, def: 1 }),
+      focusStep: r.num(b, 'focusStep', bp, { min: 0, def: 0 }),
+      focusMax: r.num(b, 'focusMax', bp, { min: 0, def: 0 }),
+      markDuration: r.num(b, 'markDuration', bp, { min: 0, def: 0 }),
+      markBonus: r.num(b, 'markBonus', bp, { min: 0, def: 0 }),
+      markSpread: r.num(b, 'markSpread', bp, { min: 0, def: 0 }),
+      rootTime: r.num(b, 'rootTime', bp, { min: 0, def: 0 }),
+      rootBoss: r.num(b, 'rootBoss', bp, { min: 0, def: 0 }),
+      rootCooldown: r.num(b, 'rootCooldown', bp, { min: 0, def: 0 }),
+      commandRadius: r.num(b, 'commandRadius', bp, { min: 0, def: 0 }),
+      commandBonus: r.num(b, 'commandBonus', bp, { min: 0, def: 0 }),
     },
+    paths: { A: [], B: [], C: [] },
+  }
+  if (o.paths !== undefined) {
+    const po = r.obj(o.paths, ['paths'])
+    for (const pid of PATHS) {
+      const list = po[pid] === undefined ? [] : r.arr(po[pid], ['paths', pid])
+      if (list.length > 6) r.err(['paths', pid], '경로는 6단계까지')
+      unit.paths[pid] = list.map((st, i) => readUpgrade(r, st, ['paths', pid, i]))
+      // 05장: at most two pure-number steps per path
+      const numeric = unit.paths[pid].filter((u) => u.kind === '수치').length
+      if (numeric > 2) r.err(['paths', pid], `수치만 오르는 단계가 ${numeric}개 (최대 2)`)
+    }
   }
   if (kind === 'chain' && unit.base.chainRange <= 0) r.err([...bp, 'chainRange'], 'chain 유닛은 chainRange가 필요함')
   if (kind === 'pulse' && unit.base.slowDuration <= 0 && unit.base.slow > 0) r.err([...bp, 'slowDuration'], '둔화 시간이 필요함')
   return unit
+}
+
+const KINDS_OF_STEP = ['수치', '공격 방식', '표적 규칙', '새 능력', '상호작용', '자원']
+
+function readEffect(r: Reader, v: unknown, p: JPath): Effect {
+  const o = r.obj(v, p)
+  const op = r.str(o, 'op', p, ['mul', 'add', 'set', 'aura', 'ability'])
+  if (op === 'mul' || op === 'add') {
+    const stat = r.str(o, 'stat', p, NUM_STATS) as NumStat
+    return { op, stat, value: r.num(o, 'value', p) }
+  }
+  if (op === 'set') {
+    const stat = r.str(o, 'stat', p, [...NUM_STATS, ...BOOL_STATS]) as NumStat | BoolStat
+    const isBool = (BOOL_STATS as string[]).includes(stat)
+    const value = isBool ? r.bool(o, 'value', p) : r.num(o, 'value', p)
+    if (isBool && typeof o.value !== 'boolean') r.err([...p, 'value'], `${stat}는 true/false`)
+    return { op, stat, value }
+  }
+  if (op === 'aura') {
+    const filter = o.filter === undefined ? undefined : (r.str(o, 'filter', p, DTYPES) as DamageType)
+    return { op, buff: r.str(o, 'buff', p, BUFFS) as BuffType, value: r.num(o, 'value', p, { def: 1 }), radius: r.num(o, 'radius', p, { min: 0.5, max: 12 }), filter }
+  }
+  const params: Record<string, number> = {}
+  if (o.params !== undefined) for (const [k, x] of Object.entries(r.obj(o.params, [...p, 'params']))) params[k] = typeof x === 'number' ? x : (r.err([...p, 'params', k], '숫자가 아님'), 0)
+  return { op: 'ability', id: r.str(o, 'id', p), cooldown: r.num(o, 'cooldown', p, { min: 1 }), energy: r.num(o, 'energy', p, { min: 0, def: 0 }), params }
+}
+
+function readUpgrade(r: Reader, v: unknown, p: JPath): Upgrade {
+  const o = r.obj(v, p)
+  const effects = r.arr(o.effects, [...p, 'effects']).map((e, i) => readEffect(r, e, [...p, 'effects', i]))
+  if (!effects.length) r.err([...p, 'effects'], '효과가 없음')
+  return {
+    name: r.str(o, 'name', p),
+    cost: r.num(o, 'cost', p, { min: 1 }),
+    text: r.str(o, 'text', p),
+    kind: r.str(o, 'kind', p, KINDS_OF_STEP),
+    effects,
+  }
 }
 
 function readEnemies(r: Reader, v: unknown): EnemyDef[] {

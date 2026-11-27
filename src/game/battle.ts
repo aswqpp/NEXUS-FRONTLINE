@@ -3,13 +3,17 @@
 
 import { BattleView } from '../render/battleView.ts'
 import { C, MAT } from '../render/palette.ts'
-import type { GameData, UnitDef } from '../sim/data.ts'
+import type { GameData, PathId, UnitDef } from '../sim/data.ts'
 import { DT, PRIORITIES, Sim, type Command, type Priority, type Unit } from '../sim/sim.ts'
 
 const PRIO_LABEL: Record<Priority, string> = { first: '선두', last: '마지막', strong: '강한 적', close: '가까운 적' }
 const ROLE_LABEL = { attack: '공격', control: '제어', support: '지원' } as const
 const DTYPE_LABEL = { kinetic: '운동', energy: '에너지', electric: '전기', explosive: '폭발' } as const
 const TIER_NAME = ['PROTOTYPE', 'ENHANCED', 'ADVANCED', 'MK-II EVOLUTION', 'SPECIALIZED', 'APEX EVOLUTION', 'SINGULARITY']
+const PATH_LABEL: Record<PathId, string> = { A: '화력', B: '제어', C: '유틸리티' }
+const STACK_NTH: Record<number, string> = { 0.6: '2번째', 0.3: '3번째' }
+// 24pt grid, 1.5pt stroke, straight lines and 45° only (2-5)
+const LOCK_SVG = '<svg class="ico" viewBox="0 0 24 24"><path d="M7 11V7l2-2h6l2 2v4M5 11h14v9H5zM12 14v3"/></svg>'
 
 const ICON = {
   pause: '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>',
@@ -267,36 +271,64 @@ export class Battle {
     return this.selected === null ? undefined : this.sim.units.find((u) => u.id === this.selected)
   }
 
+  private upGuard: Record<string, number> = {}
+  private rowSig: Record<string, string> = {}
+
   private renderSelection() {
     const u = this.selectedUnit()
     if (!u) return
-    const b = u.def.base
+    const b = u.stats
+    const sim = this.sim
     const stats: [string, string][] = []
     if (b.kind === 'pulse') {
-      stats.push(['둔화', `${Math.round(b.slow * 100)}% · ${b.slowDuration}s`], ['펄스', `${b.fireInterval.toFixed(2)}s`], ['반경', `${b.range}칸`])
+      stats.push(['둔화', `${Math.round(b.slow * 100)}% · ${b.slowDuration}s`], ['펄스', `${sim.interval(u).toFixed(2)}s`], ['반경', `${sim.range(u).toFixed(1)}칸`])
     } else {
-      stats.push(['피해', `${b.damage} ${DTYPE_LABEL[b.damageType]}`], ['연사', `${b.fireInterval.toFixed(2)}s`], ['사거리', `${b.range}칸`])
-      if (b.kind === 'rail') stats.push(['관통', `${b.pierce}`], ['장갑 관통', `${Math.round(b.armorPen * 100)}%`])
-      if (b.kind === 'chain') stats.push(['연쇄', `${b.chain}회`], ['연쇄 거리', `${b.chainRange}칸`])
+      const shots = b.multishot > 1 ? ` ×${b.multishot}` : ''
+      stats.push(['피해', `${+b.damage.toFixed(1)}${shots} ${DTYPE_LABEL[b.damageType]}`], ['연사', `${sim.interval(u).toFixed(2)}s`], ['사거리', `${sim.range(u).toFixed(1)}칸`])
+      if (b.kind === 'rail') stats.push(['관통', `${b.pierce}`])
+      if (b.kind === 'chain') stats.push(['연쇄', `${b.chain}회`])
     }
-    stats.push(['높이', b.elevated ? '있음' : '없음'])
+    const tags: string[] = [b.elevated ? '높이 있음' : '높이 없음']
+    if (b.armorPen > 0) tags.push(`장갑 관통 ${Math.round(b.armorPen * 100)}%`)
+    if (sim.detects(u)) tags.push(b.detect ? '은폐 탐지' : '은폐 탐지(공유)')
+    const tier = sim.tier(u)
     const armed = this.sellArmed?.id === u.id
-    const value = this.sim.sellValue(u)
+    const value = sim.sellValue(u)
+    const hasPaths = u.def.paths.A.length + u.def.paths.B.length + u.def.paths.C.length > 0
+    const BUFF_LABEL: Record<string, string> = { range: '사거리', attackSpeed: '공격 속도', damage: '피해', cooldown: '재사용' }
+    const buffs = u.buffs.list
+      .filter((e) => e.type !== 'detect')
+      .map((e) => {
+        const src = sim.units.find((x) => x.id === e.src)
+        const who = src ? `${src.def.code}-${String(src.id).padStart(2, '0')}` : ''
+        const part = e.weight === 1 ? '' : e.weight === 0 ? ', 4번째 이후 무시' : `, ${STACK_NTH[e.weight] ?? ''} ${Math.round(e.weight * 100)}% 적용`
+        return `${BUFF_LABEL[e.type]} +${Math.round(e.value * e.weight * 100)}% (${who}${part})`
+      })
     this.sel.innerHTML = `<div class="body">
       <div class="sel-l">
-        <div class="sel-name"><h2>${u.def.name}</h2><span class="lbl">TIER 0 · ${TIER_NAME[0]}</span></div>
+        <div class="sel-name"><h2>${u.def.name}</h2><span class="lbl">TIER ${tier} · ${TIER_NAME[tier]}</span></div>
         <div class="kv">${stats.map(([k, v]) => `<div><span class="lbl">${k}</span><b>${v}</b></div>`).join('')}</div>
+        <div class="buffs">${tags.join(' · ')}${buffs.length ? `<br><span class="lbl">받는 강화</span> ${buffs.join(' · ')}` : ''}</div>
         ${b.kind === 'pulse' ? '' : `<div class="prio">${PRIORITIES.map((p) => `<button data-p="${p}" aria-pressed="${u.priority === p}">${PRIO_LABEL[p]}</button>`).join('')}</div>`}
       </div>
-      <div class="sel-m">
-        <span class="lbl">${u.def.code}-${String(u.id).padStart(2, '0')} · ${ROLE_LABEL[u.def.role]}</span>
-        <p>${u.def.summary}</p>
-        <div class="kv"><div><span class="lbl">누적 피해</span><b data-live="dmg"></b></div><div><span class="lbl">처치</span><b data-live="kills"></b></div></div>
-      </div>
+      <div class="sel-m">${hasPaths ? (['A', 'B', 'C'] as PathId[]).map((p) => `<button class="up" data-path="${p}"></button>`).join('') : `<span class="lbl">${u.def.code} · ${ROLE_LABEL[u.def.role]}</span><p>${u.def.summary}</p>`}</div>
       <div class="sel-r">
+        <div class="kv"><div><span class="lbl">누적 피해</span><b data-live="dmg"></b></div><div><span class="lbl">처치</span><b data-live="kills"></b></div></div>
         <button class="btn sell${armed ? ' armed' : ''}" data-sell>${armed ? `판매 확정 +${value}` : `판매 +${value}`}</button>
       </div>
     </div>`
+    this.rowSig = {}
+    this.sel.querySelectorAll<HTMLButtonElement>('.up').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const path = btn.dataset.path as PathId
+        // 03장: ignore the same button for 300 ms after a purchase
+        if (performance.now() < (this.upGuard[path] ?? 0)) return
+        if (this.cmd({ t: 'upgrade', id: u.id, path })) {
+          this.upGuard[path] = performance.now() + 300
+          this.renderSelection()
+        }
+      }),
+    )
     this.sel.querySelectorAll<HTMLButtonElement>('.prio button').forEach((btn) =>
       btn.addEventListener('click', () => {
         this.cmd({ t: 'priority', id: u.id, p: btn.dataset.p as Priority })
@@ -315,6 +347,33 @@ export class Battle {
     this.updateSelection()
   }
 
+  /** Upgrade rows: state = icon/shape + text, never colour alone (2-3). */
+  private renderUpgradeRow(btn: HTMLButtonElement, u: Unit) {
+    const path = btn.dataset.path as PathId
+    const st = this.sim.upgradeStatus(u, path)
+    const sig = `${st.state}|${st.level}|${st.reason ?? ''}`
+    if (this.rowSig[path] === sig) return
+    this.rowSig[path] = sig
+    const i = ['A', 'B', 'C'].indexOf(path)
+    const total = u.def.paths[path].length
+    const pips = Array.from({ length: total }, (_, k) => `<i class="${k < u.levels[i] ? 'on' : ''}${k === 5 ? ' t6' : ''}"></i>`).join('')
+    const step = st.step
+    const price =
+      st.state === 'buy'
+        ? `<b class="price ok">${step!.cost.toLocaleString('en-US')}</b>`
+        : st.state === 'poor'
+          ? `<b class="price poor">${step!.cost.toLocaleString('en-US')} <small>${st.reason!.replace(/^크레딧 부족 /, '')}</small></b>`
+          : st.state === 'max'
+            ? '<b class="price">최대</b>'
+            : `<b class="price">${LOCK_SVG}</b>`
+    const line = st.state === 'locked' || st.state === 'nodata' ? st.reason! : step ? step.text : ''
+    btn.className = `up s-${st.state}`
+    btn.disabled = st.state !== 'buy'
+    btn.innerHTML = `<span class="pn"><span class="lbl">${path} ${PATH_LABEL[path]}</span><span class="pips">${pips}</span></span>
+      <span class="nm">${step ? `${st.level + 1}. ${step.name}` : '—'}</span>${price}
+      <span class="tx">${line}</span>`
+  }
+
   private updateSelection() {
     const u = this.selectedUnit()
     if (!u) return
@@ -322,6 +381,7 @@ export class Battle {
     const k = this.sel.querySelector('[data-live="kills"]')
     if (d) d.textContent = Math.round(u.damage).toLocaleString('en-US')
     if (k) k.textContent = String(u.kills)
+    this.sel.querySelectorAll<HTMLButtonElement>('.up').forEach((b) => this.renderUpgradeRow(b, u))
   }
 
   // ------------------------------------------------------------------ placement

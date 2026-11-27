@@ -299,8 +299,12 @@ button {
 .sel-l {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 300px;
+  gap: 6px;
+  width: 320px;
+  flex: none;
+}
+.sel-l .kv {
+  column-gap: 20px;
 }
 .sel-name {
   display: flex;
@@ -316,7 +320,7 @@ button {
 }
 .kv {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(4, auto);
   justify-content: start;
   column-gap: 24px;
   row-gap: 2px;
@@ -329,6 +333,7 @@ button {
   font-family: var(--f-mono);
   font-weight: 500;
   font-size: var(--t15);
+  white-space: nowrap;
 }
 .prio {
   display: flex;
@@ -352,8 +357,120 @@ button {
 .sel-m {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
+  min-width: 0;
+}
+.buffs {
+  font-size: var(--t11);
+  color: var(--text-2);
+  line-height: 1.4;
+}
+/* upgrade row: path + pips | next step | price, effect line below. 48pt tall */
+.up {
+  position: relative;
+  display: grid;
+  grid-template-columns: 132px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: baseline;
+  min-height: 48px;
+  padding: 5px 12px 5px 14px;
+  box-sizing: border-box;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.up:active:not(:disabled) {
+  transform: translateY(2px);
+  filter: brightness(1.08);
+}
+.up .pn {
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: center;
+}
+.up .pips {
+  display: flex;
+  gap: 3px;
+}
+.up .pips i {
+  width: 12px;
+  height: 6px;
+  border: 1px solid var(--text-dim);
+  box-sizing: border-box;
+}
+.up .pips i.on {
+  background: var(--metal);
+  border-color: var(--metal);
+}
+.up .pips i.t6 {
+  border-color: var(--gold);
+}
+.up .pips i.t6.on {
+  background: var(--gold);
+}
+.up .nm {
+  font-size: var(--t13);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up .price {
+  font-family: var(--f-mono);
+  font-weight: 500;
+  font-size: var(--t13);
+  white-space: nowrap;
+}
+.up .price small {
+  font-size: var(--t11);
+}
+.up .tx {
+  grid-column: 2 / 4;
+  font-size: var(--t11);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* affordable = lime (2-3 meaning: purchasable upgrade): 2pt bar + price */
+.up.s-buy::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--lime);
+}
+.up .price.ok {
+  color: var(--lime);
+}
+.up .price.poor {
+  color: var(--red);
+}
+.up:disabled {
+  cursor: default;
+}
+.up.s-locked .nm,
+.up.s-nodata .nm,
+.up.s-max .nm {
+  color: var(--text-dim);
+}
+.up.s-nodata .pips i.t6 {
+  border-style: dashed;
+}
+.ico {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linejoin: miter;
+  vertical-align: -3px;
 }
 .sel-m p {
   margin: 0;
@@ -363,9 +480,10 @@ button {
 .sel-r {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: flex-end;
   gap: 8px;
+  flex: none;
 }
 .sell {
   min-height: 56px;

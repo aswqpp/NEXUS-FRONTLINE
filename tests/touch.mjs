@@ -118,6 +118,17 @@ await page.evaluate(() => window.__nf.view.fit())
 
 await page.screenshot({ path: 'shots/tmp-p2-touch.png' })
 
+// 7b. upgrade by tap from the selection panel (05장): path A step 1 on the first SENTINEL
+await tap(await cellPt(3, 6))
+await wait(250)
+const u0 = await page.evaluate(() => ({ lv: window.__nf.sim.units[0].levels[0], cr: window.__nf.sim.credits }))
+await tap(await btnPt('.up[data-path="A"]'))
+await wait(100)
+const u1 = await page.evaluate(() => ({ lv: window.__nf.sim.units[0].levels[0], cr: window.__nf.sim.credits, tier: document.querySelector('.sel-name .lbl').textContent }))
+check('업그레이드 탭 구매', u1.lv === u0.lv + 1 && u1.cr === u0.cr - 120, `${u1.tier}`)
+await tap(await cellPt(20, 1))
+await wait(200)
+
 // 8a. pause -> resume
 await tap(await btnPt('#b-pause'))
 const paused = await page.evaluate(() => window.__nf.paused && document.getElementById('overlay').classList.contains('show'))

@@ -2,6 +2,7 @@
 // when any criterion slips. npm run check:balance
 import { evaluate, fmt } from './depth.ts'
 import { loadData } from './nodeData.ts'
+import { table } from './step-value.ts'
 
 const N = Number(process.env.N ?? 40)
 const SEEDS = [1, 2, 3]
@@ -22,6 +23,26 @@ for (const [name, ok, info] of criteria) {
 }
 console.log(`참고 (판정 제외, W11 이후 판정): SENTINEL 몰빵 ${fmt(r.mono)}`)
 }
+// upgrade value band (balance.md §9): 1.00 = buying another bare SENTINEL against plain enemies
+console.log('\n### 업그레이드 단계 가치 (한계 효율)')
+const rows = table(loadData(), 'sentinel')
+const m = (prefix: string) => rows.find((r) => r.step.startsWith(prefix))!.marginal
+const bands: [string, number, number, number][] = [
+  ['A1 일반', m('A1').plain, 0.8, 1.6],
+  // against armour the alternative is another SENTINEL against armour, so divide by T0's armoured value
+  ['A2 중장갑 (T0 중장갑 대비)', m('A2').armored / m('T0').armored, 0.9, 2.5],
+  ['A3 일반', m('A3').plain, 0.8, 1.6],
+  ['A4 일반', m('A4').plain, 0.8, 1.6],
+  ['A5 일반', m('A5').plain, 0.8, 1.6],
+  ['C1 은폐', m('C1').stealth, 1.0, 99],
+  ['C3 팀 은폐', m('C3').teamStealth, 1.0, 99],
+]
+for (const [name, v, lo, hi] of bands) {
+  const ok = v >= lo && v <= hi
+  console.log(`${ok ? 'ok  ' : 'FAIL'} SENTINEL ${name} ${v.toFixed(2)} (기준 ${lo}~${hi === 99 ? '' : hi})`)
+  if (!ok) bad++
+}
+
 if (bad) {
   console.log(`\n${bad}개 기준 미충족`)
   process.exit(1)

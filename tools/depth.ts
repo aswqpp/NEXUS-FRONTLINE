@@ -1,6 +1,6 @@
 // Shared decision-depth evaluation: outcome distributions per build over
 // placement seeds, and the chapter-19 criteria (see docs/balance.md).
-import type { GameData } from '../src/sim/data.ts'
+import type { GameData, PathId } from '../src/sim/data.ts'
 import { CELL_GROUND } from '../src/sim/map.ts'
 import { Sim } from '../src/sim/sim.ts'
 
@@ -40,15 +40,68 @@ export function rankedCells(data: GameData, sim: Sim) {
   return out
 }
 
-export function play(data: GameData, order: string[], picks: number[], topK: number, ranked: Map<string, [number, number][]>): RunResult {
+/** Upgrade plans: unit id -> path order to climb. Bots buy an upgrade when it costs no more than
+ *  `upRatio` x the next placement, upgrading the least-upgraded unit of that type first. */
+export type UpgradePlan = Partial<Record<string, PathId[] | { order: PathId[]; units: number }[]>>
+
+export function play(
+  data: GameData,
+  order: string[],
+  picks: number[],
+  topK: number,
+  ranked: Map<string, [number, number][]>,
+  plan: UpgradePlan = {},
+  upRatio = 1.5,
+): RunResult {
   const sim = new Sim(data, 'neon_district', 'normal')
   let i = 0
+  const tryUpgrade = (budget: number): boolean => {
+    let best: { id: number; path: PathId; cost: number } | null = null
+    // roles: the first `units` units of a type (by placement order) follow role 1, the next follow role 2, ...
+    const seen = new Map<string, number>()
+    for (const u of sim.units) {
+      const raw = plan[u.def.id]
+      if (!raw) continue
+      const idx = seen.get(u.def.id) ?? 0
+      seen.set(u.def.id, idx + 1)
+      let pl: PathId[] | undefined
+      if (typeof raw[0] === 'string') pl = raw as PathId[]
+      else {
+        let k = idx
+        for (const role of raw as { order: PathId[]; units: number }[]) {
+          if (k < role.units) {
+            pl = role.order
+            break
+          }
+          k -= role.units
+        }
+      }
+      if (!pl) continue
+      const done = u.levels[0] + u.levels[1] + u.levels[2]
+      const path = pl[done]
+      if (!path) continue
+      const st = sim.upgradeStatus(u, path)
+      if (st.state !== 'buy' || !st.step || st.step.cost > budget) continue
+      if (!best || st.step.cost < best.cost) best = { id: u.id, path, cost: st.step.cost }
+    }
+    if (!best) return false
+    return sim.command({ t: 'upgrade', id: best.id, path: best.path })
+  }
   const spend = () => {
-    for (;;) {
+    for (let guard = 0; guard < 200; guard++) {
+      const nextId = order[i % order.length]
+      const nextCost = data.units.get(nextId)!.cost
+      if (sim.units.length >= 3 && tryUpgrade(Math.min(sim.credits, nextCost * upRatio))) continue
       const id = order[i % order.length]
-      if (sim.credits < data.units.get(id)!.cost) return
+      if (sim.credits < data.units.get(id)!.cost) {
+        if (tryUpgrade(sim.credits)) continue
+        return
+      }
       const free = ranked.get(id)!.filter(([x, y]) => sim.canPlace(id, x, y).ok).slice(0, topK)
-      if (!free.length) return
+      if (!free.length) {
+        if (tryUpgrade(sim.credits)) continue
+        return
+      }
       const c = free[picks[i % picks.length] % free.length]
       sim.command({ t: 'place', unit: id, cx: c[0], cy: c[1] })
       i++

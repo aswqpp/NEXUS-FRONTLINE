@@ -396,7 +396,7 @@ export class BattleView {
 
   private drawUnit(g: Graphics, u: Unit, px: number, selected: boolean) {
     const recoil = u.fired < 7 ? (7 - u.fired) * 0.006 : 0
-    this.drawUnitShape(g, u.def.id, u.x, u.y, u.angle, px, recoil, 1)
+    this.drawUnitShape(g, u.def.id, u.x, u.y, u.angle, px, recoil, 1, u.levels)
     if (selected) {
       // corner brackets, not a full coloured border (2-5)
       const k = 0.18
@@ -413,7 +413,7 @@ export class BattleView {
   }
 
   /** Simple-shape stand-ins (Phase 2). Base fixed, top rotates toward the target. */
-  drawUnitShape(g: Graphics, id: string, x: number, y: number, angle: number, px: number, recoil: number, alpha: number) {
+  drawUnitShape(g: Graphics, id: string, x: number, y: number, angle: number, px: number, recoil: number, alpha: number, lv: readonly number[] = [0, 0, 0]) {
     const ca = Math.cos(angle)
     const sa = Math.sin(angle)
     const R = (pts: number[]) => {
@@ -431,8 +431,25 @@ export class BattleView {
     g.rect(x - 0.38 + 0.08, y - 0.3, 0.6, px * 1.5).fill({ color: hex(MAT.frame.light), alpha })
     const b = -recoil
     if (id === 'sentinel') {
-      fill(R(ch(0.18 + b, -0.035, 0.52 + b, 0.035, 0)), MAT.gun.base)
-      fill(R(ch(-0.22, -0.16, 0.18, 0.16, 0.06)), MAT.hull.base)
+      // silhouette changes by path and tier (2-2): A3 twin, A5 rotary + drum, B3 mast, C3 antennas
+      if (lv[0] >= 5) {
+        for (const yy of [-0.05, 0, 0.05]) fill(R(ch(0.14 + b, yy - 0.016, 0.58 + b, yy + 0.016, 0)), MAT.gun.base)
+        g.circle(x + (-0.06 * ca - -0.26 * sa), y + (-0.06 * sa + -0.26 * ca), 0.12).fill({ color: hex(MAT.frame.base), alpha }).stroke({ width: px, color: hex(MAT.frame.seam), alpha })
+      } else if (lv[0] >= 3) {
+        for (const yy of [-0.085, 0.085]) fill(R(ch(0.18 + b, yy - 0.03, 0.54 + b, yy + 0.03, 0)), MAT.gun.base)
+        fill(R(ch(-0.17, -0.36, 0.06, -0.19, 0.03)), MAT.frame.base)
+      } else fill(R(ch(0.18 + b, -0.035, 0.52 + b, 0.035, 0)), MAT.gun.base)
+      fill(R(ch(-0.22, lv[0] >= 3 ? -0.2 : -0.16, 0.18, lv[0] >= 3 ? 0.2 : 0.16, 0.06)), MAT.hull.base)
+      if (lv[1] >= 3) {
+        fill(R(ch(-0.12, -0.06, 0.0, 0.06, 0.02)), MAT.frame.light)
+        g.poly(R([0, -0.012, 0.42, -0.012, 0.42, 0.012, 0, 0.012])).fill({ color: hex(MAT.gun.light), alpha })
+      }
+      if (lv[2] >= 3) {
+        g.poly(R([-0.1, -0.16, -0.08, -0.16, -0.08, -0.42, -0.1, -0.42])).fill({ color: hex(MAT.gun.light), alpha })
+        g.poly(R([-0.1, 0.16, -0.08, 0.16, -0.08, 0.42, -0.1, 0.42])).fill({ color: hex(MAT.gun.light), alpha })
+        fill(R(ch(-0.15, -0.46, -0.03, -0.4, 0)), MAT.frame.light)
+        fill(R(ch(-0.15, 0.4, -0.03, 0.46, 0)), MAT.frame.light)
+      }
     } else if (id === 'railx') {
       fill(R(ch(0.1 + b, -0.04, 0.6 + b, 0.04, 0)), MAT.gun.base)
       fill(R(ch(-0.26, -0.13, 0.14, 0.13, 0.04)), MAT.hull.base)

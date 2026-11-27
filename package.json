@@ -14,7 +14,8 @@
     "analyze": "tsx tools/analyze.ts",
     "tune": "tsx tools/tune.ts",
     "check:balance": "tsx tools/balance-check.ts",
-    "replay": "tsx tools/replay.ts"
+    "replay": "tsx tools/replay.ts",
+    "step-value": "tsx tools/step-value.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
