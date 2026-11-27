@@ -13,7 +13,7 @@
     "range": 3,
     "chain": 3,
     "chainRange": 1.6,
-    "chainFalloff": 0.85,
+    "chainFalloff": 0.7,
     "elevated": true,
     "detect": false
   },

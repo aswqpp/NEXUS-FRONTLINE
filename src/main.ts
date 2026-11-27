@@ -13,6 +13,13 @@ import { DataError, loadGameData } from './sim/data.ts'
 // All game data, as raw text so schema errors can point at file:line.
 const raw = import.meta.glob('../data/**/*.json', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 
+/** FNV-1a over all data files, so a playtest record can tell which numbers it was played on. */
+export function dataHash(files: Record<string, string>): string {
+  let h = 0x811c9dc5
+  for (const k of Object.keys(files).sort()) for (const ch of k + files[k]) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193)
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
 async function main() {
   const root = document.getElementById('app')!
   const files: Record<string, string> = {}
@@ -31,6 +38,7 @@ async function main() {
     ),
   )
   const battle = new Battle(data)
+  battle.dataHash = dataHash(files)
   await battle.mount(root)
   // read-only handle for automated checks (19장); not part of the UI
   ;(window as unknown as { __nf: Battle }).__nf = battle

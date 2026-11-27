@@ -166,6 +166,14 @@ check('10웨이브를 터치로 끝까지', fin.st === 'won', `state=${fin.st} w
 const resultText = await page.textContent('#overlay')
 check('승리 화면 문구', /구역 유지\. 대피 완료율 100%/.test(resultText ?? ''))
 await page.screenshot({ path: 'shots/tmp-p2-result.png' })
+// playtest record: save from the result screen, then re-verify it headlessly
+const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-a="export"]')])
+await dl.saveAs('shots/tmp-playtest.json')
+const { execFileSync } = await import('node:child_process')
+let replayOk = true
+let replayOut = ''
+try { replayOut = execFileSync('npx', ['tsx', 'tools/replay.ts', 'shots/tmp-playtest.json'], { encoding: 'utf8' }) } catch (e) { replayOk = false; replayOut = String(e.stdout ?? e) }
+check('플레이 기록 저장 → 헤드리스 재생 일치', replayOk && /재생: 일치/.test(replayOut), replayOut.split('\n').find((l) => l.startsWith('재생')))
 check('페이지 오류 없음', errors.length === 0, errors.join(' | '))
 await browser.close()
 console.log(fails ? `\n${fails}개 실패` : '\n전부 통과')

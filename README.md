@@ -10,6 +10,9 @@ npm run dev        # 게임: http://127.0.0.1:5190/  · 시안 시트: /dev/shee
 npm run typecheck
 npm test           # 결정론·재생·데이터 검사
 npm run sim        # 헤드리스 밸런스 표
+npm run check:balance  # 밸런스 기준 회귀 (docs/balance.md)
+npm run analyze    # 커버리지·효율·분포 원재료
+npm run replay -- 기록.json  # 플레이 기록 재생 검증
 node tests/touch.mjs   # 터치 검수 + 10웨이브 완주 (dev 서버 필요)
 ```
 
@@ -20,4 +23,5 @@ node tests/touch.mjs   # 터치 검수 + 10웨이브 완주 (dev 서버 필요)
 | `docs/art.md` | 형태·색·재질·UI·모션 규칙과 검수 방법 |
 | `docs/decisions.md` | 지시서와 다르게 정했거나 지시서가 정하지 않은 것 |
 | `docs/progress.md` | 현재 상태와 다음 작업 |
-| `docs/playtest.md` | 실기기에서 사람이 확인할 것 |
+| `docs/playtest.md` | 실기기에서 사람이 확인할 것, 플레이테스트 절차 |
+| `docs/balance.md` | 밸런스 기준, 원재료, 탐색, 결정 |

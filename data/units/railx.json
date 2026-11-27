@@ -7,10 +7,10 @@
   "footprint": 1,
   "base": {
     "kind": "rail",
-    "damage": 18,
+    "damage": 14,
     "damageType": "kinetic",
     "fireInterval": 2.2,
-    "range": 7,
+    "range": 5,
     "pierce": 3,
     "armorPen": 0.4,
     "elevated": true,

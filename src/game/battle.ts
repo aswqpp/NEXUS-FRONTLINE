@@ -4,7 +4,7 @@
 import { BattleView } from '../render/battleView.ts'
 import { C, MAT } from '../render/palette.ts'
 import type { GameData, UnitDef } from '../sim/data.ts'
-import { DT, PRIORITIES, Sim, type Priority, type Unit } from '../sim/sim.ts'
+import { DT, PRIORITIES, Sim, type Command, type Priority, type Unit } from '../sim/sim.ts'
 
 const PRIO_LABEL: Record<Priority, string> = { first: '선두', last: '마지막', strong: '강한 적', close: '가까운 적' }
 const ROLE_LABEL = { attack: '공격', control: '제어', support: '지원' } as const
@@ -55,6 +55,12 @@ export class Battle {
   private reasonEl: HTMLElement | null = null
   private confirmEl: HTMLButtonElement | null = null
   private hudCache: Record<string, string> = {}
+  /** wall-clock ms (since the battle started) for each accepted command: think time for playtests */
+  private cmdMs: number[] = []
+  private startMs = performance.now()
+  private pausedMs = 0
+  private pauseStart = 0
+  dataHash = ''
 
   constructor(data: GameData) {
     this.data = data
@@ -109,7 +115,7 @@ export class Battle {
     for (const id of ['h-wave', 'h-core', 'h-corebar', 'h-cr', 'h-next', 'b-wave', 'b-speed', 'b-pause'])
       this.hud[id] = hud.querySelector(`#${id}`)!
     this.hud['b-wave'].addEventListener('click', () => {
-      if (this.sim.command({ t: 'wave' })) this.update(true)
+      if (this.cmd({ t: 'wave' })) this.update(true)
     })
     this.hud['b-speed'].addEventListener('click', () => {
       this.speed = (this.speed % 3) + 1
@@ -146,6 +152,42 @@ export class Battle {
       rail.append(b)
     }
     this.root.append(rail)
+  }
+
+  private cmd(c: Command): boolean {
+    const ok = this.sim.command(c)
+    if (ok) this.cmdMs.push(Math.round(performance.now() - this.startMs))
+    return ok
+  }
+
+  /** Playtest record (docs/balance.md §5): replayable command log + think times. */
+  record() {
+    const s = this.sim
+    return {
+      format: 'nexus-frontline-playtest',
+      version: 1,
+      dataHash: this.dataHash,
+      map: s.map.def.id,
+      difficulty: 'normal',
+      endTick: s.tick,
+      hash: s.hash(),
+      result: { state: s.state, core: s.core, wave: s.wave, evacuation: s.evacuation() },
+      log: s.log,
+      cmdMs: this.cmdMs,
+      pausedMs: Math.round(this.pausedMs),
+      speedAtEnd: this.speed,
+      viewport: [window.innerWidth, window.innerHeight],
+      recordedAt: new Date().toISOString(),
+    }
+  }
+
+  private download() {
+    const blob = new Blob([JSON.stringify(this.record(), null, 1)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `playtest-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
   }
 
   // ------------------------------------------------------------------ loop
@@ -257,13 +299,13 @@ export class Battle {
     </div>`
     this.sel.querySelectorAll<HTMLButtonElement>('.prio button').forEach((btn) =>
       btn.addEventListener('click', () => {
-        this.sim.command({ t: 'priority', id: u.id, p: btn.dataset.p as Priority })
+        this.cmd({ t: 'priority', id: u.id, p: btn.dataset.p as Priority })
         this.renderSelection()
       }),
     )
     this.sel.querySelector('[data-sell]')!.addEventListener('click', () => {
       if (this.sellArmed?.id === u.id && performance.now() <= this.sellArmed.until) {
-        this.sim.command({ t: 'sell', id: u.id })
+        this.cmd({ t: 'sell', id: u.id })
         this.select(null)
       } else {
         this.sellArmed = { id: u.id, until: performance.now() + 3000 }
@@ -313,7 +355,7 @@ export class Battle {
   private tryPlace(): boolean {
     const p = this.placement
     if (!p || !p.has) return false
-    const ok = this.sim.command({ t: 'place', unit: p.unit, cx: p.cx, cy: p.cy })
+    const ok = this.cmd({ t: 'place', unit: p.unit, cx: p.cx, cy: p.cy })
     if (ok) this.cancelPlacement()
     return ok
   }
@@ -509,6 +551,8 @@ export class Battle {
 
   setPaused(p: boolean) {
     if (this.ended) return
+    if (p && !this.paused) this.pauseStart = performance.now()
+    if (!p && this.paused) this.pausedMs += performance.now() - this.pauseStart
     this.paused = p
     if (!p) {
       this.overlay.classList.remove('show')
@@ -557,7 +601,9 @@ export class Battle {
       <div class="menu">
         <button class="btn primary" data-a="restart">다시 작전</button>
         <button class="btn" data-a="view">전장 보기</button>
+        <button class="btn" data-a="export">플레이 기록 저장</button>
       </div></div>`
+    this.overlay.querySelector('[data-a="export"]')!.addEventListener('click', () => this.download())
     this.overlay.querySelector('[data-a="restart"]')!.addEventListener('click', () => this.restart())
     this.overlay.querySelector('[data-a="view"]')!.addEventListener('click', () => {
       this.overlay.classList.remove('show')
@@ -590,6 +636,9 @@ export class Battle {
     this.select(null)
     this.overlay.classList.remove('show')
     this.last = performance.now()
+    this.cmdMs = []
+    this.startMs = performance.now()
+    this.pausedMs = 0
     this.update(true)
   }
 }
