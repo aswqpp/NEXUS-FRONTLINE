@@ -1,0 +1,21 @@
+{
+  "id": "arc",
+  "name": "ARC",
+  "code": "ARC",
+  "role": "attack",
+  "cost": 300,
+  "footprint": 1,
+  "base": {
+    "kind": "chain",
+    "damage": 6,
+    "damageType": "electric",
+    "fireInterval": 1.1,
+    "range": 3,
+    "chain": 3,
+    "chainRange": 1.6,
+    "chainFalloff": 0.85,
+    "elevated": true,
+    "detect": false
+  },
+  "summary": "연쇄 전기. 보호막과 군집에 강하다."
+}

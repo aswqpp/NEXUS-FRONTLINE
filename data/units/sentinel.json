@@ -1,0 +1,21 @@
+{
+  "id": "sentinel",
+  "name": "SENTINEL",
+  "code": "SNT",
+  "role": "attack",
+  "cost": 200,
+  "footprint": 1,
+  "base": {
+    "kind": "gun",
+    "damage": 4,
+    "damageType": "kinetic",
+    "fireInterval": 0.6,
+    "range": 3.2,
+    "pierce": 1,
+    "armorPen": 0,
+    "projectileSpeed": 14,
+    "elevated": false,
+    "detect": false
+  },
+  "summary": "기본 전투. 저렴하고 경로마다 역할이 다르다."
+}

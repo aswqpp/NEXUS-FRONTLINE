@@ -104,3 +104,6 @@ body {
   font-family: var(--f-mono);
   font-variant-numeric: tabular-nums;
 }
+.panel[data-em='red']::after {
+  background: var(--red);
+}

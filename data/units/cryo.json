@@ -1,0 +1,20 @@
+{
+  "id": "cryo",
+  "name": "CRYO",
+  "code": "CRY",
+  "role": "control",
+  "cost": 250,
+  "footprint": 1,
+  "base": {
+    "kind": "pulse",
+    "damage": 1,
+    "damageType": "energy",
+    "fireInterval": 1.2,
+    "range": 2.2,
+    "slow": 0.4,
+    "slowDuration": 1.5,
+    "elevated": false,
+    "detect": false
+  },
+  "summary": "냉각 펄스. 둔화 40%, 재생 정지."
+}
