@@ -1,0 +1,185 @@
+{
+  "map": "neon_district",
+  "difficulty": "normal",
+  "inflationBase": 20,
+  "waves": [
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 12,
+          "interval": 0.9,
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 18,
+          "interval": 0.7,
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 12,
+          "interval": 0.8,
+          "delay": 0
+        },
+        {
+          "enemy": "r11",
+          "count": 6,
+          "interval": 0.6,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 16,
+          "interval": 0.6,
+          "delay": 0
+        },
+        {
+          "enemy": "r11",
+          "count": 10,
+          "interval": 0.5,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 14,
+          "interval": 0.7,
+          "delay": 0
+        },
+        {
+          "enemy": "h02",
+          "count": 3,
+          "interval": 2.0,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 16,
+          "interval": 0.6,
+          "delay": 0
+        },
+        {
+          "enemy": "r11",
+          "count": 10,
+          "interval": 0.5,
+          "delay": 1.5
+        },
+        {
+          "enemy": "h02",
+          "count": 4,
+          "interval": 1.6,
+          "delay": 3.0
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r11",
+          "count": 6,
+          "interval": 0.3,
+          "delay": 0
+        },
+        {
+          "enemy": "r11",
+          "count": 6,
+          "interval": 0.3,
+          "delay": 4
+        },
+        {
+          "enemy": "r11",
+          "count": 6,
+          "interval": 0.3,
+          "delay": 8
+        },
+        {
+          "enemy": "r07",
+          "count": 10,
+          "interval": 0.6,
+          "delay": 2
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r07",
+          "count": 14,
+          "interval": 0.6,
+          "delay": 0
+        },
+        {
+          "enemy": "s04",
+          "count": 5,
+          "interval": 1.4,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "r11",
+          "count": 12,
+          "interval": 0.45,
+          "delay": 0
+        },
+        {
+          "enemy": "h02",
+          "count": 6,
+          "interval": 1.4,
+          "delay": 1.5
+        },
+        {
+          "enemy": "s04",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 3.0
+        }
+      ]
+    },
+    {
+      "groups": [
+        {
+          "enemy": "w00w",
+          "count": 1,
+          "interval": 0,
+          "delay": 0
+        },
+        {
+          "enemy": "r07",
+          "count": 16,
+          "interval": 0.6,
+          "delay": 3
+        },
+        {
+          "enemy": "r11",
+          "count": 8,
+          "interval": 0.5,
+          "delay": 3.0
+        }
+      ]
+    }
+  ]
+}

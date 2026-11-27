@@ -1,0 +1,20 @@
+{
+  "id": "railx",
+  "name": "RAIL-X",
+  "code": "RLX",
+  "role": "attack",
+  "cost": 350,
+  "footprint": 1,
+  "base": {
+    "kind": "rail",
+    "damage": 18,
+    "damageType": "kinetic",
+    "fireInterval": 2.2,
+    "range": 7,
+    "pierce": 3,
+    "armorPen": 0.4,
+    "elevated": true,
+    "detect": false
+  },
+  "summary": "초장거리 관통. 느리지만 줄 선 적을 꿴다."
+}

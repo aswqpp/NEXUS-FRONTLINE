@@ -1,0 +1,441 @@
+/* Battle screen layout (03장). 1 CSS px = 1 pt on iPad. */
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#app {
+  --hud-h: 48px;
+  --rail-w: 96px;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ------------------------------------------------------------ buttons */
+.btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--line);
+  color: var(--text);
+  font-size: var(--t13);
+  font-weight: 600;
+  transition:
+    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 120ms;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  filter: brightness(1.08);
+}
+.btn:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+.btn.primary {
+  background: var(--metal);
+  color: var(--bg);
+}
+.btn.primary:disabled {
+  background: var(--line);
+  color: var(--text-dim);
+}
+.btn.sq {
+  padding: 0;
+  width: 44px;
+}
+.btn svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+}
+
+/* ------------------------------------------------------------ HUD */
+#hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: calc(var(--hud-h) + var(--sat));
+  padding: var(--sat) calc(8px + var(--sar)) 0 calc(16px + var(--sal));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  z-index: 3;
+}
+.hud-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.hud-c {
+  margin: 0 auto;
+}
+.hud-r {
+  display: flex;
+  gap: 4px;
+}
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.stat b {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: var(--t15);
+}
+.stat b.big {
+  font-size: var(--t20);
+}
+.stat b.dim {
+  color: var(--text-2);
+  font-size: var(--t13);
+}
+.corebar {
+  position: relative;
+  width: 64px;
+  height: 4px;
+  background: var(--line);
+  align-self: center;
+}
+.corebar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--metal);
+}
+.corebar.hurt > i {
+  background: var(--red);
+}
+#h-core.hurt {
+  color: var(--red);
+}
+
+/* ------------------------------------------------------------ rail */
+#rail {
+  position: absolute;
+  right: 0;
+  top: calc(var(--hud-h) + var(--sat));
+  bottom: 0;
+  width: calc(var(--rail-w) + var(--sar));
+  padding: 8px calc(12px + var(--sar)) calc(20px + var(--sab)) 12px;
+  box-sizing: border-box;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  touch-action: pan-y;
+  z-index: 3;
+}
+.filters {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+}
+.filters button {
+  height: 44px;
+  font-size: var(--t13);
+  color: var(--text-2);
+  border-left: 2px solid transparent;
+}
+.filters button + button {
+  border-top: 1px solid var(--line);
+}
+.filters button[aria-pressed='true'] {
+  color: var(--text);
+  border-left-color: var(--metal);
+}
+.ubtn {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  justify-items: center;
+  padding: 4px 0 4px;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.ubtn canvas {
+  width: 36px;
+  height: 36px;
+}
+.ubtn .code {
+  font-family: var(--f-cond);
+  font-weight: 600;
+  font-size: var(--t11);
+  letter-spacing: 0.08em;
+}
+.ubtn .price {
+  font-family: var(--f-mono);
+  font-size: var(--t11);
+  color: var(--text-2);
+}
+.ubtn.poor {
+  opacity: 0.55;
+}
+.ubtn.poor .price {
+  color: var(--red);
+}
+.ubtn.armed::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--cyan);
+}
+.ubtn[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------ map */
+#map {
+  position: absolute;
+  left: 0;
+  top: calc(var(--hud-h) + var(--sat));
+  right: calc(var(--rail-w) + var(--sar));
+  bottom: 0;
+  overflow: hidden;
+}
+#map canvas {
+  display: block;
+}
+#mapui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#mapui > * {
+  pointer-events: auto;
+}
+.banner {
+  /* bottom-left: the map's top-left is the enemy entrance on Neon District */
+  position: absolute;
+  left: calc(16px + var(--sal));
+  bottom: calc(28px + var(--sab));
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-left: 12px;
+}
+.banner .txt {
+  font-size: var(--t13);
+}
+.reason {
+  position: absolute;
+  padding: 6px 10px 6px 12px;
+  font-size: var(--t13);
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  pointer-events: none !important;
+}
+.confirm {
+  position: absolute;
+  transform: translate(-50%, 0);
+  min-height: 56px;
+}
+
+/* ------------------------------------------------------------ selection panel */
+#sel {
+  position: absolute;
+  left: calc(8px + var(--sal));
+  right: calc(var(--rail-w) + var(--sar) + 8px);
+  bottom: 0;
+  height: calc(200px + var(--sab));
+  transform: translateY(105%);
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 2;
+}
+#sel.open {
+  transform: none;
+}
+#sel .body {
+  display: flex;
+  gap: 24px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 16px 16px calc(20px + var(--sab)) 18px;
+}
+.sel-l {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 300px;
+}
+.sel-name {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.sel-name h2 {
+  margin: 0;
+  font-family: var(--f-cond);
+  font-weight: 600;
+  font-size: var(--t20);
+  letter-spacing: 0.02em;
+}
+.kv {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  column-gap: 24px;
+  row-gap: 2px;
+}
+.kv div {
+  display: flex;
+  flex-direction: column;
+}
+.kv b {
+  font-family: var(--f-mono);
+  font-weight: 500;
+  font-size: var(--t15);
+}
+.prio {
+  display: flex;
+  margin-top: auto;
+}
+.prio button {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--t13);
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+}
+.prio button + button {
+  border-left: 0;
+}
+.prio button[aria-pressed='true'] {
+  color: var(--text);
+  border-bottom-color: var(--cyan);
+}
+.sel-m {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.sel-m p {
+  margin: 0;
+  color: var(--text-2);
+  max-width: 320px;
+}
+.sel-r {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 8px;
+}
+.sell {
+  min-height: 56px;
+  min-width: 160px;
+}
+.sell.armed {
+  background: var(--text);
+  color: var(--bg);
+}
+
+/* ------------------------------------------------------------ overlays */
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 5;
+  background: rgba(16, 20, 25, 0.85);
+}
+#overlay.show {
+  display: block;
+}
+.sheet {
+  position: absolute;
+  left: calc(48px + var(--sal));
+  bottom: calc(48px + var(--sab));
+  width: 360px;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sheet h2 {
+  margin: 0;
+  font-size: var(--t20);
+  font-weight: 600;
+}
+.sheet .menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sheet .menu .btn {
+  justify-content: flex-start;
+  min-height: 56px;
+}
+.sheet table {
+  border-collapse: collapse;
+  font-size: var(--t13);
+}
+.sheet th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-2);
+  padding: 4px 16px 4px 0;
+}
+.sheet td {
+  font-family: var(--f-mono);
+  text-align: right;
+}
+.sheet tr + tr {
+  border-top: 1px solid var(--line);
+}
+.err {
+  position: fixed;
+  inset: 16px;
+  padding: 16px;
+  white-space: pre-wrap;
+  font-family: var(--f-mono);
+  font-size: var(--t13);
+  color: var(--text);
+  overflow: auto;
+}
