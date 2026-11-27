@@ -17,5 +17,307 @@
     "elevated": true,
     "detect": false
   },
-  "summary": "연쇄 전기. 보호막과 군집에 강하다."
+  "summary": "연쇄 전기. 보호막과 군집에 강하다.",
+  "paths": {
+    "A": [
+      {
+        "name": "고전압 코일",
+        "cost": 180,
+        "text": "피해 +60%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "damage",
+            "value": 1.6
+          }
+        ]
+      },
+      {
+        "name": "다중 방전",
+        "cost": 300,
+        "text": "연쇄 +2, 연쇄 감쇠 0.7→0.8",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "add",
+            "stat": "chain",
+            "value": 2
+          },
+          {
+            "op": "set",
+            "stat": "chainFalloff",
+            "value": 0.8
+          }
+        ]
+      },
+      {
+        "name": "MK-II 쌍극 방전기",
+        "cost": 600,
+        "text": "서로 다른 첫 표적 2기에서 연쇄 2줄",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "multishot",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "name": "역감쇠",
+        "cost": 1350,
+        "text": "연쇄 피해가 줄지 않고 점프마다 +8%",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "chainFalloff",
+            "value": 1.08
+          }
+        ]
+      },
+      {
+        "name": "APEX 뇌격탑",
+        "cost": 3600,
+        "text": "첫 표적 주변 1.5칸 방전 폭발(피해 ×1.5) + 연쇄",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "burstRadius",
+            "value": 1.5
+          },
+          {
+            "op": "set",
+            "stat": "burstMul",
+            "value": 1.5
+          }
+        ]
+      },
+      {
+        "name": "STORMGRID-Ω",
+        "cost": 10500,
+        "text": "능력: 12초간 사거리 안 전원에게 0.25초마다 방전 4, 재사용 60s",
+        "kind": "새 능력",
+        "effects": [
+          {
+            "op": "ability",
+            "id": "stormgrid",
+            "cooldown": 60,
+            "energy": 0,
+            "params": {
+              "duration": 12,
+              "tick": 0.25,
+              "damage": 4
+            }
+          }
+        ]
+      }
+    ],
+    "B": [
+      {
+        "name": "절연 파괴",
+        "cost": 180,
+        "text": "보호막 계수 2.0→3.0",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "shieldMul",
+            "value": 1.5
+          }
+        ]
+      },
+      {
+        "name": "누설 전류",
+        "cost": 300,
+        "text": "맞은 적 2초간 초당 전기 2",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "dotDps",
+            "value": 2
+          },
+          {
+            "op": "set",
+            "stat": "dotTime",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "name": "MK-II 지락 탐지기",
+        "cost": 600,
+        "text": "사거리 안 은폐 탐지, 맞은 은폐 적 2초 노출",
+        "kind": "표적 규칙",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "detect",
+            "value": true
+          },
+          {
+            "op": "set",
+            "stat": "revealTime",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "name": "과부하 유도",
+        "cost": 1350,
+        "text": "누설 전류 중인 적 처치 시 1칸 방전 폭발(전기 10)",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "dotBurst",
+            "value": 10
+          },
+          {
+            "op": "set",
+            "stat": "dotBurstRadius",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "name": "APEX 아크 감옥",
+        "cost": 3600,
+        "text": "체력 30% 이하 적이 맞으면 1.5초 구속, 구속 중 전기 피해 +50%",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "jailBelow",
+            "value": 0.3
+          },
+          {
+            "op": "set",
+            "stat": "jailTime",
+            "value": 1.5
+          },
+          {
+            "op": "set",
+            "stat": "jailVuln",
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "name": "FARADAY-Ω",
+        "cost": 10500,
+        "text": "능력: 코어 앞 경로 2칸 10초 방전 벽, 재사용 55s",
+        "kind": "새 능력",
+        "effects": [
+          {
+            "op": "ability",
+            "id": "faraday",
+            "cooldown": 55,
+            "energy": 0,
+            "params": {
+              "duration": 10
+            }
+          }
+        ]
+      }
+    ],
+    "C": [
+      {
+        "name": "접지 분배",
+        "cost": 180,
+        "text": "연쇄 거리 +30%",
+        "kind": "수치",
+        "effects": [
+          {
+            "op": "mul",
+            "stat": "chainRange",
+            "value": 1.3
+          }
+        ]
+      },
+      {
+        "name": "배터리 팩",
+        "cost": 300,
+        "text": "웨이브 시작 시 에너지 +5",
+        "kind": "자원",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "energyPerWave",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "name": "MK-II 송전 연결",
+        "cost": 600,
+        "text": "주변 2칸 아군 공격에 전기 피해 +2",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "aura",
+            "buff": "bonusElectric",
+            "value": 2,
+            "radius": 2
+          }
+        ]
+      },
+      {
+        "name": "축전 반응",
+        "cost": 1350,
+        "text": "CRYO 시너지 강화: 둔화된 적에게 연쇄 +3",
+        "kind": "상호작용",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "chainSynergy",
+            "value": 3
+          }
+        ]
+      },
+      {
+        "name": "APEX 아크 그리드",
+        "cost": 3600,
+        "text": "3칸 안 아군 최대 3기와 전기 다리, 다리 통과 적 초당 15",
+        "kind": "공격 방식",
+        "effects": [
+          {
+            "op": "set",
+            "stat": "bridgeCount",
+            "value": 3
+          },
+          {
+            "op": "set",
+            "stat": "bridgeRadius",
+            "value": 3
+          },
+          {
+            "op": "set",
+            "stat": "bridgeDps",
+            "value": 15
+          }
+        ]
+      },
+      {
+        "name": "GRIDLORD-Ω",
+        "cost": 10500,
+        "text": "능력: 10초간 맵 위 모든 아군 공격에 연쇄 1회, 에너지 40, 재사용 75s",
+        "kind": "새 능력",
+        "effects": [
+          {
+            "op": "ability",
+            "id": "gridlord",
+            "cooldown": 75,
+            "energy": 40,
+            "params": {
+              "duration": 10
+            }
+          }
+        ]
+      }
+    ]
+  }
 }

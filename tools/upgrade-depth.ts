@@ -21,6 +21,10 @@ const plans: [string, string[], UpgradePlan, number][] = [
   ['균형 · SENTINEL 1기 C, 나머지 A', BALANCED, { sentinel: [{ order: C5, units: 1 }, { order: A5, units: 99 }] }, 1.5],
   ['균형 · SENTINEL 1기 B, 나머지 A', BALANCED, { sentinel: [{ order: B5, units: 1 }, { order: A5, units: 99 }] }, 1.5],
   ['균형 · SENTINEL 1기 C만, 나머지 없음', BALANCED, { sentinel: [{ order: C5, units: 1 }] }, 1.5],
+  ['균형 · 공격 3종 전원 A', BALANCED, { sentinel: A5, railx: A5, arc: A5 }, 1.5],
+  ['RAIL-X 몰빵 · 업그레이드 없음', ['railx'], {}, 1.5],
+  ['RAIL-X 몰빵 · 전원 A', ['railx'], { railx: A5 }, 6],
+  ['ARC 몰빵 · 전원 A', ['arc'], { arc: A5 }, 6],
 ]
 console.log(`N=${N}\n\n| 빌드 | 결과 | 승리 중 한 유닛 50%+ |\n| --- | --- | --- |`)
 for (const [name, order, plan, ratio] of plans) {

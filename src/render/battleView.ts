@@ -230,6 +230,9 @@ export class BattleView {
         case 'pulse':
           this.fx.push({ kind: 'pulse', ttl: 0.35, life: 0.35, a: [ev.x, ev.y, ev.r] })
           break
+        case 'burst':
+          this.fx.push({ kind: 'pulse', ttl: 0.2, life: 0.2, a: [ev.x, ev.y, ev.r] })
+          break
         case 'shot':
           if (this.fxDensity >= 0.5) this.fx.push({ kind: 'muzzle', ttl: 0.06, life: 0.06, a: [ev.x, ev.y, ev.angle] })
           break
@@ -315,6 +318,11 @@ export class BattleView {
         this.drawUnitShape(g, def.id, p.cx + 0.5, p.cy + 0.5, -Math.PI / 2, px, 0, p.ok ? 0.85 : 0.45)
       }
     }
+    // ARC C5 bridges: thin static lines between linked units
+    for (const [a, b] of this.sim.bridgeList) {
+      g.moveTo(a.x, a.y).lineTo((a.x + b.x) / 2 + (b.y - a.y) * 0.08, (a.y + b.y) / 2 - (b.x - a.x) * 0.08).lineTo(b.x, b.y)
+    }
+    if (this.sim.bridgeList.length) g.stroke({ width: px * 1.5, color: hex(C.cyan), alpha: 0.55 })
     // projectiles: short tracer along flight direction
     for (const pr of this.sim.projectiles) {
       const dx = pr.tx - pr.x
@@ -451,13 +459,19 @@ export class BattleView {
         fill(R(ch(-0.15, 0.4, -0.03, 0.46, 0)), MAT.frame.light)
       }
     } else if (id === 'railx') {
-      fill(R(ch(0.1 + b, -0.04, 0.6 + b, 0.04, 0)), MAT.gun.base)
+      if (lv[0] >= 3) for (const yy of [-0.09, 0.09]) fill(R(ch(0.1 + b, yy - 0.035, 0.6 + b, yy + 0.035, 0)), MAT.gun.base)
+      else fill(R(ch(0.1 + b, -0.04, 0.6 + b, 0.04, 0)), MAT.gun.base)
+      if (lv[1] >= 3) fill(R(ch(0.56 + b, -0.09, 0.66 + b, 0.09, 0.03)), MAT.frame.light)
+      if (lv[2] >= 3) fill(R(ch(-0.3, -0.05, -0.18, 0.05, 0)), MAT.hull.light)
       fill(R(ch(-0.26, -0.13, 0.14, 0.13, 0.04)), MAT.hull.base)
       fill(R(ch(-0.08, -0.17, 0.02, 0.17, 0)), MAT.frame.base)
     } else if (id === 'arc') {
       fill(ch(x - 0.24, y - 0.24, x + 0.24, y + 0.24, 0.08), MAT.frame.light)
       fill(ch(x - 0.16, y - 0.16, x + 0.16, y + 0.16, 0.05), MAT.hull.base)
-      fill(R(ch(0.04, -0.05, 0.34, 0.05, 0.02)), MAT.gun.base)
+      if (lv[0] >= 3) for (const yy of [-0.1, 0.1]) fill(R(ch(0.04, yy - 0.04, 0.32, yy + 0.04, 0.02)), MAT.gun.base)
+      else fill(R(ch(0.04, -0.05, 0.34, 0.05, 0.02)), MAT.gun.base)
+      if (lv[1] >= 3) fill(R(ch(-0.36, -0.02, -0.2, 0.02, 0)), MAT.gun.light)
+      if (lv[2] >= 3) for (const yy of [-0.3, 0.3]) fill(ch(x - 0.06, y + yy - 0.04, x + 0.06, y + yy + 0.04, 0.02), MAT.hull.light)
     } else if (id === 'cryo') {
       fill(ch(x - 0.3, y - 0.2, x + 0.3, y + 0.2, 0.04), MAT.hull.base)
       g.circle(x, y, 0.15).fill({ color: hex(MAT.gun.base), alpha }).stroke({ width: px, color: hex(MAT.gun.seam), alpha })

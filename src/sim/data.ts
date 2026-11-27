@@ -41,6 +41,44 @@ export interface UnitBase {
   /** command node: allies in radius prefer this unit's target and deal +bonus to it */
   commandRadius: number
   commandBonus: number
+  /** rail: line length past the target range (0 = range); damage x(1+ramp) per enemy already pierced */
+  lineLength: number
+  pierceRamp: number
+  /** knockback along the path (cells); knockbackAll: every enemy hit, else the first; armoured/boss immune unless heavy */
+  knockback: number
+  knockbackAll: boolean
+  /** bonus damage against enemies at or above 50% hp */
+  healthyBonus: number
+  /** fraction of current shield removed on hit */
+  shieldStrip: number
+  /** extra multiplier on the shield coefficient for this unit's damage type */
+  shieldMul: number
+  /** armour shred: kinetic resistance -amount for seconds, applies to all attackers */
+  shred: number
+  shredTime: number
+  /** chain: extra jumps on CRYO-slowed primary targets (06장 synergy) */
+  chainSynergy: number
+  /** burst at the primary target (radius, damage multiplier) */
+  burstRadius: number
+  burstMul: number
+  /** damage over time on hit, and an explosion when an enemy dies while burning */
+  dotDps: number
+  dotTime: number
+  dotBurst: number
+  dotBurstRadius: number
+  /** reveal stealth on hit for seconds */
+  revealTime: number
+  /** execute-jail: below hp fraction, root for seconds and take +vuln from this damage type */
+  jailBelow: number
+  jailTime: number
+  jailVuln: number
+  /** electric bridges to up to N allies within radius, damage per second to enemies crossing */
+  bridgeCount: number
+  bridgeRadius: number
+  bridgeDps: number
+  /** economy */
+  energyPerKill: number
+  energyPerWave: number
 }
 
 export type NumStat = { [K in keyof UnitBase]: UnitBase[K] extends number ? K : never }[keyof UnitBase]
@@ -49,9 +87,12 @@ export const NUM_STATS: NumStat[] = [
   'damage', 'fireInterval', 'range', 'pierce', 'armorPen', 'projectileSpeed', 'chain', 'chainRange', 'chainFalloff',
   'slow', 'slowDuration', 'multishot', 'focusStep', 'focusMax', 'markDuration', 'markBonus', 'markSpread',
   'rootTime', 'rootBoss', 'rootCooldown', 'commandRadius', 'commandBonus',
+  'lineLength', 'pierceRamp', 'knockback', 'healthyBonus', 'shieldStrip', 'shieldMul', 'shred', 'shredTime',
+  'chainSynergy', 'burstRadius', 'burstMul', 'dotDps', 'dotTime', 'dotBurst', 'dotBurstRadius', 'revealTime',
+  'jailBelow', 'jailTime', 'jailVuln', 'bridgeCount', 'bridgeRadius', 'bridgeDps', 'energyPerKill', 'energyPerWave',
 ]
-export const BOOL_STATS: BoolStat[] = ['elevated', 'detect', 'antiAir']
-export const BUFFS = ['range', 'attackSpeed', 'damage', 'detect', 'cooldown'] as const
+export const BOOL_STATS: BoolStat[] = ['elevated', 'detect', 'antiAir', 'knockbackAll']
+export const BUFFS = ['range', 'attackSpeed', 'damage', 'detect', 'cooldown', 'elevated', 'bonusElectric'] as const
 export type BuffType = (typeof BUFFS)[number]
 
 export type Effect =
@@ -250,7 +291,7 @@ function readUnit(r: Reader, v: unknown): UnitDef {
       projectileSpeed: r.num(b, 'projectileSpeed', bp, { min: 1, def: 14 }),
       chain: r.num(b, 'chain', bp, { min: 0, def: 0 }),
       chainRange: r.num(b, 'chainRange', bp, { min: 0, def: 0 }),
-      chainFalloff: r.num(b, 'chainFalloff', bp, { min: 0, max: 1, def: 1 }),
+      chainFalloff: r.num(b, 'chainFalloff', bp, { min: 0, max: 2, def: 1 }),
       slow: r.num(b, 'slow', bp, { min: 0, max: 0.95, def: 0 }),
       slowDuration: r.num(b, 'slowDuration', bp, { min: 0, def: 0 }),
       elevated: r.bool(b, 'elevated', bp),
@@ -267,6 +308,31 @@ function readUnit(r: Reader, v: unknown): UnitDef {
       rootCooldown: r.num(b, 'rootCooldown', bp, { min: 0, def: 0 }),
       commandRadius: r.num(b, 'commandRadius', bp, { min: 0, def: 0 }),
       commandBonus: r.num(b, 'commandBonus', bp, { min: 0, def: 0 }),
+      lineLength: r.num(b, 'lineLength', bp, { min: 0, def: 0 }),
+      pierceRamp: r.num(b, 'pierceRamp', bp, { min: 0, def: 0 }),
+      knockback: r.num(b, 'knockback', bp, { min: 0, def: 0 }),
+      knockbackAll: r.bool(b, 'knockbackAll', bp),
+      healthyBonus: r.num(b, 'healthyBonus', bp, { min: 0, def: 0 }),
+      shieldStrip: r.num(b, 'shieldStrip', bp, { min: 0, max: 1, def: 0 }),
+      shieldMul: r.num(b, 'shieldMul', bp, { min: 0, def: 1 }),
+      shred: r.num(b, 'shred', bp, { min: 0, max: 1, def: 0 }),
+      shredTime: r.num(b, 'shredTime', bp, { min: 0, def: 0 }),
+      chainSynergy: r.num(b, 'chainSynergy', bp, { min: 0, def: kind === 'chain' ? 2 : 0 }),
+      burstRadius: r.num(b, 'burstRadius', bp, { min: 0, def: 0 }),
+      burstMul: r.num(b, 'burstMul', bp, { min: 0, def: 0 }),
+      dotDps: r.num(b, 'dotDps', bp, { min: 0, def: 0 }),
+      dotTime: r.num(b, 'dotTime', bp, { min: 0, def: 0 }),
+      dotBurst: r.num(b, 'dotBurst', bp, { min: 0, def: 0 }),
+      dotBurstRadius: r.num(b, 'dotBurstRadius', bp, { min: 0, def: 0 }),
+      revealTime: r.num(b, 'revealTime', bp, { min: 0, def: 0 }),
+      jailBelow: r.num(b, 'jailBelow', bp, { min: 0, max: 1, def: 0 }),
+      jailTime: r.num(b, 'jailTime', bp, { min: 0, def: 0 }),
+      jailVuln: r.num(b, 'jailVuln', bp, { min: 0, def: 0 }),
+      bridgeCount: r.num(b, 'bridgeCount', bp, { min: 0, def: 0 }),
+      bridgeRadius: r.num(b, 'bridgeRadius', bp, { min: 0, def: 0 }),
+      bridgeDps: r.num(b, 'bridgeDps', bp, { min: 0, def: 0 }),
+      energyPerKill: r.num(b, 'energyPerKill', bp, { min: 0, def: 0 }),
+      energyPerWave: r.num(b, 'energyPerWave', bp, { min: 0, def: 0 }),
     },
     paths: { A: [], B: [], C: [] },
   }

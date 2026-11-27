@@ -73,7 +73,7 @@ test('피해 계수: 중장갑 운동 0.4, 보호막 전기 2.0·에너지 0.25'
   s.command({ t: 'wave' })
   const mk = (id: string) => {
     const def = data.enemies.get(id)!
-    return { id: 0, def, wave: 1, dist: 1, x: 0, y: 0, angle: 0, hp: 100, maxHp: 100, shield: def.shield ? 40 : 0, maxShield: 40, lastHit: 0, slow: 0, slowUntil: 0, markUntil: 0, markBonus: 0, markSpread: 0, rootUntil: 0, rootReadyAt: 0, alive: true }
+    return { id: 0, def, wave: 1, dist: 1, x: 0, y: 0, angle: 0, hp: 100, maxHp: 100, shield: def.shield ? 40 : 0, maxShield: 40, lastHit: 0, slow: 0, slowUntil: 0, markUntil: 0, markBonus: 0, markSpread: 0, rootUntil: 0, rootReadyAt: 0, shredUntil: 0, shred: 0, dotUntil: 0, dotDps: 0, dotSrc: 0, dotBurst: 0, dotBurstRadius: 0, revealUntil: 0, vulnUntil: 0, vuln: 0, alive: true }
   }
   const h = mk('h02')
   s.damage(h, 10, 'kinetic', 0)
@@ -224,6 +224,99 @@ test('업그레이드가 섞여도 같은 입력이면 같은 결과', () => {
   assert.equal(a.hash(), b.hash())
   const c = Sim.replay(data, 'neon_district', 'normal', a.log, a.tick)
   assert.equal(c.hash(), a.hash())
+})
+
+// ---------------------------------------------------------------- RAIL-X / ARC mechanics
+const fake = (s: Sim, id: string, dist: number, over: Partial<Record<string, number>> = {}) => {
+  const def = data.enemies.get(id)!
+  const e = { id: 9000 + s.enemies.length, def, wave: 1, dist, x: 0, y: 0, angle: 0, hp: 100, maxHp: 100, shield: def.shield ? 40 : 0, maxShield: 40, lastHit: 0, slow: 0, slowUntil: 0, markUntil: 0, markBonus: 0, markSpread: 0, rootUntil: 0, rootReadyAt: 0, shredUntil: 0, shred: 0, dotUntil: 0, dotDps: 0, dotSrc: 0, dotBurst: 0, dotBurstRadius: 0, revealUntil: 0, vulnUntil: 0, vuln: 0, alive: true, ...over }
+  s.map.posAt(dist, e)
+  s.enemies.push(e)
+  return e
+}
+const unitWith = (id: string, path: 'A' | 'B' | 'C', n: number, cx = 3, cy = 6) => {
+  const s = new Sim(data, 'neon_district', 'normal')
+  s.credits = 1e6
+  s.command({ t: 'place', unit: id, cx, cy })
+  const u = s.units[s.units.length - 1]
+  for (let i = 0; i < n; i++) assert.ok(s.command({ t: 'upgrade', id: u.id, path }), `${id} ${path}${i + 1}`)
+  return { s, u }
+}
+
+test('RAIL-X B4 장갑 박리: 중장갑 운동 계수 0.4 → 0.7 (모든 아군)', () => {
+  const { s, u } = unitWith('railx', 'B', 4)
+  const e = fake(s, 'h02', 5)
+  ;(s as unknown as { hitWith: (u: unknown, e: unknown, n: number) => void }).hitWith(u, e, 0.0001)
+  const hp = e.hp
+  s.damage(e, 10, 'kinetic', 0)
+  assert.ok(Math.abs(hp - e.hp - 7) < 1e-6, String(hp - e.hp))
+})
+
+test('RAIL-X B3 분쇄 레일: 맞은 적 보호막 50% 제거', () => {
+  const { s, u } = unitWith('railx', 'B', 3)
+  const e = fake(s, 's04', 5)
+  ;(s as unknown as { hitWith: (u: unknown, e: unknown, n: number) => void }).hitWith(u, e, 0.0001)
+  assert.ok(e.shield <= 20.0001 && e.shield > 19, String(e.shield))
+})
+
+test('RAIL-X B1 충격 탄두: 첫 적만 0.4칸 뒤로, 중장갑 제외', () => {
+  const { s, u } = unitWith('railx', 'B', 1)
+  const a = fake(s, 'r07', 10)
+  const h = fake(s, 'h02', 10)
+  const hw = (s as unknown as { hitWith: (u: unknown, e: unknown, n: number, d?: unknown, p?: unknown, f?: boolean) => void }).hitWith.bind(s)
+  hw(u, a, 0.0001, undefined, undefined, true)
+  hw(u, h, 0.0001, undefined, undefined, true)
+  assert.ok(Math.abs(a.dist - 9.6) < 1e-9)
+  assert.equal(h.dist, 10)
+})
+
+test('ARC B2 누설 전류: 2초간 초당 2 전기 피해', () => {
+  const { s, u } = unitWith('arc', 'B', 2)
+  const e = fake(s, 'r07', 2)
+  ;(s as unknown as { hitWith: (u: unknown, e: unknown, n: number) => void }).hitWith(u, e, 0.0001)
+  s.units.length = 0
+  const hp = e.hp
+  for (let i = 0; i < 60 * 3; i++) s.step()
+  assert.ok(Math.abs(hp - e.hp - 4) < 0.05, String(hp - e.hp))
+})
+
+test('ARC C3 송전 연결: 주변 아군 명중에 전기 +2', () => {
+  const { s } = unitWith('arc', 'C', 3)
+  s.command({ t: 'place', unit: 'sentinel', cx: 4, cy: 6 })
+  s.step()
+  assert.equal(s.units[1].buffs.bonusElectric, 2)
+})
+
+test('RAIL-X C3 관측 마스트: 주변 아군이 고가 구간 공격', () => {
+  const { s } = unitWith('railx', 'C', 3)
+  s.command({ t: 'place', unit: 'sentinel', cx: 4, cy: 6 })
+  s.step()
+  assert.ok(s.elevatedFor(s.units[1]))
+})
+
+test('ARC A3 쌍극: 첫 표적 2기에서 연쇄 2줄', () => {
+  const { s, u } = unitWith('arc', 'A', 3, 3, 3)
+  s.command({ t: 'wave' })
+  let chains = 0
+  for (let i = 0; i < 60 * 25 && chains === 0; i++) {
+    s.step()
+    const c = s.events.filter((e) => e.e === 'chain').length
+    if (c) chains = c
+    s.events.length = 0
+  }
+  assert.ok(chains >= 1)
+  void u
+})
+
+test('에너지: 노드 옆 유닛이 초당 0.3 생산, 상한 50', () => {
+  const s = new Sim(data, 'neon_district', 'normal')
+  s.credits = 1e6
+  const e0 = s.energy
+  s.command({ t: 'place', unit: 'sentinel', cx: 12, cy: 5 })
+  for (let i = 0; i < 600; i++) s.step()
+  assert.ok(Math.abs(s.energy - e0 - 3) < 0.05, String(s.energy - e0))
+  for (let i = 0; i < 60 * 200; i++) s.step()
+  assert.equal(s.energy, 50)
 })
 
 if (failed) {

@@ -22,7 +22,19 @@ function probeData(base: GameData, enemy: string): GameData {
 const cache = new Map<string, { data: GameData; ranked: Map<string, [number, number][]> }>()
 
 /** team: also place `team` bare SENTINELs on the ground cells nearest the subject and count everyone's damage */
-export function capacity(base: GameData, unit: string, levels: [number, number, number], stream: Stream = 'plain', seconds = 60, team = 0, overpass = false) {
+/** Best result over the top `spots` coverage cells: a player puts each build where it works best
+ *  (a rail where the path lines up, a chain where enemies bunch). */
+export function capacity(base: GameData, unit: string, levels: [number, number, number], stream: Stream = 'plain', seconds = 40, team = 0, overpass = false, spots = 8) {
+  if (overpass || spots <= 1) return capacityAt(base, unit, levels, stream, seconds, team, overpass, 0)
+  let best = capacityAt(base, unit, levels, stream, seconds, team, false, 0)
+  for (let k = 1; k < spots; k++) {
+    const r = capacityAt(base, unit, levels, stream, seconds, team, false, k)
+    if (r.damage > best.damage) best = r
+  }
+  return best
+}
+
+function capacityAt(base: GameData, unit: string, levels: [number, number, number], stream: Stream, seconds: number, team: number, overpass: boolean, rank: number) {
   const key = stream
   let c = cache.get(key)
   if (!c || c.data.units !== base.units) {
@@ -32,7 +44,7 @@ export function capacity(base: GameData, unit: string, levels: [number, number, 
   }
   // keep unit defs from the caller (tuning experiments edit them)
   c.data.units = base.units
-  let cell = c.ranked.get(unit)![0]
+  let cell = c.ranked.get(unit)![rank]
   if (overpass) {
     // the ground cell whose range covers the most overpass path (where height matters)
     const probe = new Sim(c.data, 'neon_district', 'normal')
@@ -68,6 +80,7 @@ export function capacity(base: GameData, unit: string, levels: [number, number, 
   for (const p of order) if (!sim.command({ t: 'upgrade', id: u.id, path: p })) throw new Error(`upgrade ${p} rejected (${levels})`)
   sim.command({ t: 'wave' })
   const warm = 60 * 12 // let the stream reach the unit
+  void 0
   while (sim.tick < warm) {
     sim.step()
     sim.events.length = 0
@@ -88,8 +101,8 @@ export type Col = Stream | 'team' | 'teamStealth' | 'overpass'
 export const COLS: Col[] = ['plain', 'armored', 'shielded', 'stealth', 'team', 'teamStealth', 'overpass']
 
 export function table(data: GameData, unit: string) {
-  const unitCost = data.units.get('sentinel')!.cost
-  const ref = capacity(data, 'sentinel', [0, 0, 0], 'plain').damage / unitCost
+  // 1.00 = buying another one of this same unit, against plain enemies
+  const ref = capacity(data, unit, [0, 0, 0], 'plain').damage / data.units.get(unit)!.cost
   const run = (lv: [number, number, number]) =>
     Object.fromEntries(
       COLS.map((c) => [
@@ -126,7 +139,7 @@ const isMain = import.meta.url === `file://${process.argv[1]}`
 if (isMain) {
   const data = loadData()
   for (const unit of process.argv.slice(2).length ? process.argv.slice(2) : ['sentinel']) {
-    console.log(`\n## ${unit} — 단계별 한계 효율 (1.00 = 일반 적 상대로 SENTINEL 하나를 더 사는 것과 같음, T0 행은 평균 효율)`)
+    console.log(`\n## ${unit} — 단계별 한계 효율 (1.00 = 일반 적 상대로 같은 유닛을 하나 더 사는 것, T0 행은 평균 효율)`)
     console.log('| 단계 | 종류 | 누적 투자 | 일반 | 중장갑 | 보호막 | 은폐 | 팀(+6) | 팀 은폐(+6) | 고가 옆 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
     for (const r of table(data, unit)) console.log(`| ${r.step} | ${r.kind} | ${r.invested} | ${COLS.map((c) => r.marginal[c].toFixed(2)).join(' | ')} |`)
   }

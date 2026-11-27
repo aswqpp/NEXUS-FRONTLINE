@@ -66,11 +66,13 @@ export interface Buffs {
   attackSpeed: number
   damage: number
   cooldown: number
+  bonusElectric: number
   detect: boolean
+  elevated: boolean
   list: BuffEntry[]
 }
 
-const NO_BUFFS: Buffs = { range: 0, attackSpeed: 0, damage: 0, cooldown: 0, detect: false, list: [] }
+const NO_BUFFS: Buffs = { range: 0, attackSpeed: 0, damage: 0, cooldown: 0, bonusElectric: 0, detect: false, elevated: false, list: [] }
 const STACK_WEIGHTS = [1, 0.6, 0.3]
 export const ATTACK_SPEED_CAP = 0.8
 
@@ -103,6 +105,16 @@ export interface Enemy {
   markSpread: number
   rootUntil: number
   rootReadyAt: number
+  shredUntil: number
+  shred: number
+  dotUntil: number
+  dotDps: number
+  dotSrc: number
+  dotBurst: number
+  dotBurstRadius: number
+  revealUntil: number
+  vulnUntil: number
+  vuln: number
   alive: boolean
 }
 
@@ -124,6 +136,7 @@ export type SimEvent =
   | { e: 'shot'; unit: number; x: number; y: number; angle: number }
   | { e: 'rail'; x1: number; y1: number; x2: number; y2: number }
   | { e: 'chain'; pts: number[] }
+  | { e: 'burst'; x: number; y: number; r: number }
   | { e: 'pulse'; x: number; y: number; r: number }
   | { e: 'hit'; x: number; y: number; dtype: DamageType; shield: boolean }
   | { e: 'death'; x: number; y: number; enemy: string; reward: number }
@@ -169,6 +182,9 @@ export class Sim {
   readonly coreMax: number
   /** number of waves started */
   wave = 0
+  /** energy (07장): nodes and REACTOR produce, abilities spend. Not shown until something can spend it. */
+  energy = 20
+  energyMax = 50
   units: Unit[] = []
   enemies: Enemy[] = []
   projectiles: Projectile[] = []
@@ -424,8 +440,8 @@ export class Sim {
           entries.push({ type: au.buff, value: au.value, weight: 0, src: src.id })
         }
       }
-      const b: Buffs = { range: 0, attackSpeed: 0, damage: 0, cooldown: 0, detect: false, list: entries }
-      for (const type of ['range', 'attackSpeed', 'damage', 'cooldown'] as const) {
+      const b: Buffs = { range: 0, attackSpeed: 0, damage: 0, cooldown: 0, bonusElectric: 0, detect: false, elevated: false, list: entries }
+      for (const type of ['range', 'attackSpeed', 'damage', 'cooldown', 'bonusElectric'] as const) {
         const list = entries.filter((e) => e.type === type).sort((x, y) => y.value - x.value || x.src - y.src)
         list.forEach((e, k) => {
           e.weight = STACK_WEIGHTS[k] ?? 0
@@ -434,7 +450,8 @@ export class Sim {
       }
       b.attackSpeed = Math.min(ATTACK_SPEED_CAP, b.attackSpeed)
       b.detect = entries.some((e) => e.type === 'detect')
-      for (const e of entries) if (e.type === 'detect') e.weight = 1
+      b.elevated = entries.some((e) => e.type === 'elevated')
+      for (const e of entries) if (e.type === 'detect' || e.type === 'elevated') e.weight = 1
       u.buffs = b
     }
   }
@@ -451,6 +468,50 @@ export class Sim {
     return u.stats.detect || u.buffs.detect
   }
 
+  elevatedFor(u: Unit): boolean {
+    return u.stats.elevated || u.buffs.elevated
+  }
+
+  /** Bridge partners (ARC C5): up to N nearest allies within radius, by distance then id. */
+  private bridges: [Unit, Unit][] = []
+  private recomputeBridges() {
+    this.bridges = []
+    for (const u of this.units) {
+      if (u.stats.bridgeCount <= 0) continue
+      const near = this.units
+        .filter((o) => o !== u && Math.hypot(o.x - u.x, o.y - u.y) <= u.stats.bridgeRadius)
+        .sort((a, b) => Math.hypot(a.x - u.x, a.y - u.y) - Math.hypot(b.x - u.x, b.y - u.y) || a.id - b.id)
+        .slice(0, u.stats.bridgeCount)
+      for (const o of near) this.bridges.push([u, o])
+    }
+  }
+
+  get bridgeList(): readonly [Unit, Unit][] {
+    return this.bridges
+  }
+
+  addEnergy(n: number) {
+    this.energy = Math.min(this.energyMax, this.energy + n)
+  }
+
+  /** Energy nodes (D-11): 0.3 EN/s each while a friendly unit stands within 1 cell. ARC bridges deal damage here too. */
+  private energyStep() {
+    for (const [nx, ny] of this.map.def.energyNodes)
+      if (this.units.some((u) => Math.abs(u.x - nx) <= 1.01 && Math.abs(u.y - ny) <= 1.01)) this.addEnergy(0.3 * DT)
+    for (const [a, b] of this.bridges) {
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const L = Math.hypot(dx, dy) || 1
+      for (const e of this.enemies) {
+        if (!e.alive) continue
+        const t = Math.max(0, Math.min(L, ((e.x - a.x) * dx + (e.y - a.y) * dy) / L))
+        const px = a.x + (dx / L) * t - e.x
+        const py = a.y + (dy / L) * t - e.y
+        if (px * px + py * py <= (e.def.radius + 0.15) ** 2) this.damage(e, a.stats.bridgeDps * DT, 'electric', 0, a, true)
+      }
+    }
+  }
+
   private startWave() {
     const index = ++this.wave
     const spawns: ActiveWave['spawns'] = []
@@ -460,6 +521,7 @@ export class Sim {
     spawns.sort((a, b) => a.time - b.time)
     this.active.push({ index, spawns, next: 0, t: 0, alive: 0, done: false })
     this.stats.push({ wave: index, coreDamage: 0, income: 0, kills: 0 })
+    for (const u of this.units) if (u.stats.energyPerWave > 0) this.addEnergy(u.stats.energyPerWave)
     this.state = 'running'
     this.events.push({ e: 'waveStart', wave: index })
   }
@@ -487,6 +549,16 @@ export class Sim {
       markSpread: 0,
       rootUntil: 0,
       rootReadyAt: 0,
+      shredUntil: 0,
+      shred: 0,
+      dotUntil: 0,
+      dotDps: 0,
+      dotSrc: 0,
+      dotBurst: 0,
+      dotBurstRadius: 0,
+      revealUntil: 0,
+      vulnUntil: 0,
+      vuln: 0,
       alive: true,
     }
     this.map.posAt(dist, e)
@@ -506,7 +578,11 @@ export class Sim {
     if (this.state === 'won' || this.state === 'lost') return
     this.tick++
     const now = this.time
-    if (this.buffsDirty) this.recomputeBuffs()
+    if (this.buffsDirty) {
+      this.recomputeBuffs()
+      this.recomputeBridges()
+    }
+    this.energyStep()
     this.spawnStep()
     this.moveEnemies(now)
     for (const u of this.units) this.unitStep(u, now)
@@ -531,6 +607,10 @@ export class Sim {
       if (!e.alive) continue
       if (now > e.slowUntil) e.slow = 0
       if (now >= e.rootUntil) e.dist += e.def.speed * this.diff.speed * (1 - e.slow) * DT
+      if (e.dotUntil > now && e.dotDps > 0) {
+        this.damage(e, e.dotDps * DT, 'electric', 0, this.units.find((x) => x.id === e.dotSrc), true)
+        if (!e.alive) continue
+      }
       if (e.maxShield > 0 && e.shield < e.maxShield && now - e.lastHit > 3)
         e.shield = Math.min(e.maxShield, e.shield + 0.08 * e.maxShield * DT)
       if (e.dist >= len) {
@@ -560,8 +640,8 @@ export class Sim {
 
   private targetable(u: Unit, e: Enemy): boolean {
     if (!e.alive) return false
-    if (e.def.stealth && !this.detects(u) && !this.marked(e)) return false
-    if (!u.stats.elevated && this.map.isElevated(e.dist)) return false
+    if (e.def.stealth && !this.detects(u) && !this.marked(e) && e.revealUntil <= this.time) return false
+    if (!this.elevatedFor(u) && this.map.isElevated(e.dist)) return false
     return true
   }
 
@@ -672,57 +752,109 @@ export class Sim {
     } else if (b.kind === 'rail') {
       const dx = Math.cos(u.angle)
       const dy = Math.sin(u.angle)
-      const hits: { e: Enemy; along: number }[] = []
       const r = this.range(u)
-      for (const e of this.enemies) {
-        if (!e.alive) continue
-        if (!b.elevated && this.map.isElevated(e.dist)) continue
-        const along = (e.x - u.x) * dx + (e.y - u.y) * dy
-        if (along < 0 || along > r) continue
-        const perp = Math.abs((e.x - u.x) * dy - (e.y - u.y) * dx)
-        if (perp <= e.def.radius + 0.08) hits.push({ e, along })
-      }
-      hits.sort((a, c) => a.along - c.along || a.e.id - c.e.id)
-      const n = Math.min(b.pierce, hits.length)
-      for (let i = 0; i < n; i++) this.hitWith(u, hits[i].e, dmg)
-      const end = n === b.pierce && n > 0 ? hits[n - 1].along + 0.4 : r
-      this.events.push({ e: 'rail', x1: u.x + dx * 0.5, y1: u.y + dy * 0.5, x2: u.x + dx * end, y2: u.y + dy * end })
-    } else if (b.kind === 'chain') {
-      // CRYO + ARC synergy (06장): slowed primary target -> +2 jumps
-      const jumps = b.chain + (t.slow > 0 ? 2 : 0)
-      const pts = [u.x, u.y - 0.25, t.x, t.y]
-      const hit = new Set<number>([t.id])
-      let d = dmg
-      let cur = t
-      this.hitWith(u, t, d)
-      for (let j = 0; j < jumps; j++) {
-        let next: Enemy | undefined
-        let bd = b.chainRange * b.chainRange
+      const len = Math.max(r, b.lineLength)
+      const n = Math.max(1, Math.round(b.multishot))
+      for (let k = 0; k < n; k++) {
+        const off = n === 1 ? 0 : (k - (n - 1) / 2) * 0.35
+        const ox = u.x - dy * off
+        const oy = u.y + dx * off
+        const hits: { e: Enemy; along: number }[] = []
         for (const e of this.enemies) {
-          if (hit.has(e.id) || !this.targetable(u, e)) continue
-          const d2 = (e.x - cur.x) ** 2 + (e.y - cur.y) ** 2
-          if (d2 <= bd) {
-            bd = d2
-            next = e
-          }
+          if (!e.alive) continue
+          if (!this.elevatedFor(u) && this.map.isElevated(e.dist)) continue
+          const along = (e.x - ox) * dx + (e.y - oy) * dy
+          if (along < 0 || along > len) continue
+          const perp = Math.abs((e.x - ox) * dy - (e.y - oy) * dx)
+          if (perp <= e.def.radius + 0.08) hits.push({ e, along })
         }
-        if (!next) break
-        d *= b.chainFalloff
-        hit.add(next.id)
-        pts.push(next.x, next.y)
-        this.hitWith(u, next, d)
-        cur = next
+        hits.sort((a2, c) => a2.along - c.along || a2.e.id - c.e.id)
+        const m = Math.min(b.pierce, hits.length)
+        for (let i = 0; i < m; i++) this.hitWith(u, hits[i].e, dmg * (1 + b.pierceRamp) ** i, undefined, undefined, i === 0)
+        const end = m === b.pierce && m > 0 ? hits[m - 1].along + 0.4 : len
+        this.events.push({ e: 'rail', x1: ox + dx * 0.5, y1: oy + dy * 0.5, x2: ox + dx * end, y2: oy + dy * end })
       }
-      this.events.push({ e: 'chain', pts })
+    } else if (b.kind === 'chain') {
+      // primaries: the picked target, then (twin electrodes) the next best distinct targets in range
+      const primaries: Enemy[] = [t]
+      const n = Math.max(1, Math.round(b.multishot))
+      if (n > 1) {
+        const r = this.range(u)
+        const extra = this.enemies
+          .filter((e) => e !== t && this.targetable(u, e) && this.inReach(u, e, r))
+          .sort((a2, c) => c.dist - a2.dist || a2.id - c.id)
+        primaries.push(...extra.slice(0, n - 1))
+      }
+      const hit = new Set<number>()
+      for (const p0 of primaries) {
+        // CRYO + ARC synergy (06장): slowed primary target -> extra jumps
+        const jumps = b.chain + (p0.slow > 0 ? b.chainSynergy : 0)
+        const pts = [u.x, u.y - 0.25, p0.x, p0.y]
+        hit.add(p0.id)
+        let d = dmg
+        let cur = p0
+        if (b.burstRadius > 0) {
+          for (const e of this.enemies)
+            if (e.alive && e !== p0 && (e.x - p0.x) ** 2 + (e.y - p0.y) ** 2 <= b.burstRadius ** 2) this.hitWith(u, e, dmg * b.burstMul)
+          this.events.push({ e: 'burst', x: p0.x, y: p0.y, r: b.burstRadius })
+        }
+        this.hitWith(u, p0, d, undefined, undefined, true)
+        for (let j = 0; j < jumps; j++) {
+          let next: Enemy | undefined
+          let bd = b.chainRange * b.chainRange
+          for (const e of this.enemies) {
+            if (hit.has(e.id) || !this.targetable(u, e)) continue
+            const d2 = (e.x - cur.x) ** 2 + (e.y - cur.y) ** 2
+            if (d2 <= bd) {
+              bd = d2
+              next = e
+            }
+          }
+          if (!next) break
+          d *= b.chainFalloff
+          hit.add(next.id)
+          pts.push(next.x, next.y)
+          this.hitWith(u, next, d)
+          cur = next
+        }
+        this.events.push({ e: 'chain', pts })
+      }
     }
   }
 
   /** One hit from a unit: on-hit upgrades (focus fire, mark, sticky rounds), then damage. */
-  private hitWith(u: Unit | undefined, e: Enemy, amount: number, dtype?: DamageType, armorPen?: number) {
+  private hitWith(u: Unit | undefined, e: Enemy, amount: number, dtype?: DamageType, armorPen?: number, first = false) {
     if (!e.alive) return
     let dmg = amount
     if (u) {
       const s = u.stats
+      const now = this.time
+      if (s.healthyBonus > 0 && e.hp >= e.maxHp * 0.5) dmg *= 1 + s.healthyBonus
+      if (s.shieldStrip > 0 && e.shield > 0) e.shield -= e.shield * s.shieldStrip
+      if (s.shred > 0) {
+        e.shred = Math.max(e.shredUntil > now ? e.shred : 0, s.shred)
+        e.shredUntil = now + s.shredTime
+      }
+      if (s.knockback > 0 && (first || s.knockbackAll) && !e.def.boss && (s.knockbackAll || e.def.armor === 0)) {
+        e.dist = Math.max(0, e.dist - s.knockback)
+        this.map.posAt(e.dist, e)
+      }
+      if (s.dotDps > 0) {
+        e.dotUntil = now + s.dotTime
+        e.dotDps = Math.max(e.dotUntil > now ? e.dotDps : 0, s.dotDps)
+        e.dotSrc = u.id
+        e.dotBurst = s.dotBurst
+        e.dotBurstRadius = s.dotBurstRadius
+      }
+      if (s.revealTime > 0) e.revealUntil = Math.max(e.revealUntil, now + s.revealTime)
+      if (s.jailBelow > 0 && e.hp <= e.maxHp * s.jailBelow && now >= e.rootReadyAt) {
+        e.rootUntil = now + (e.def.boss ? 0 : s.jailTime)
+        e.rootReadyAt = now + s.jailTime + 1
+        e.vulnUntil = now + s.jailTime
+        e.vuln = s.jailVuln
+      }
+      if (u.buffs.bonusElectric > 0) this.damage(e, u.buffs.bonusElectric, 'electric', 0, u, true)
+      if (!e.alive) return
       if (s.focusStep > 0) {
         if (u.focusId === e.id) u.focusStacks = Math.min(s.focusMax, u.focusStacks + 1)
         else {
@@ -768,14 +900,15 @@ export class Sim {
   }
 
   /** Damage with type coefficients (design.md 2-1). Shield first, overflow to the body. */
-  damage(e: Enemy, amount: number, dtype: DamageType, armorPen: number, src?: Unit) {
+  damage(e: Enemy, amount: number, dtype: DamageType, armorPen: number, src?: Unit, quiet = false) {
     if (!e.alive || amount <= 0) return
     let raw = amount * (this.marked(e) ? 1 + e.markBonus : 1)
+    if (dtype === 'electric' && e.vulnUntil > this.time) raw *= 1 + e.vuln
     let dealt = 0
     let onShield = false
     if (e.shield > 0) {
       onShield = true
-      const k = SHIELD_COEF[dtype]
+      const k = SHIELD_COEF[dtype] * (src && src.stats.damageType === dtype ? src.stats.shieldMul : 1)
       const eff = raw * k
       if (eff <= e.shield) {
         e.shield -= eff
@@ -790,7 +923,8 @@ export class Sim {
     if (raw > 0) {
       let k = 1
       if (e.def.armor > 0) {
-        if (dtype === 'kinetic') k = 1 - e.def.armor * (1 - armorPen)
+        const armor = Math.max(0, e.def.armor - (e.shredUntil > this.time ? e.shred : 0))
+        if (dtype === 'kinetic') k = 1 - armor * (1 - armorPen)
         else if (dtype === 'explosive') k = 1.1
       }
       const body = Math.min(e.hp, raw * k)
@@ -799,7 +933,7 @@ export class Sim {
     }
     e.lastHit = this.time
     if (src) src.damage += dealt
-    this.events.push({ e: 'hit', x: e.x, y: e.y, dtype, shield: onShield })
+    if (!quiet) this.events.push({ e: 'hit', x: e.x, y: e.y, dtype, shield: onShield })
     if (e.hp <= 0) this.kill(e, src)
   }
 
@@ -812,8 +946,18 @@ export class Sim {
       st.income += reward
       st.kills++
     }
-    if (src) src.kills++
+    if (src) {
+      src.kills++
+      if (src.stats.energyPerKill > 0) this.addEnergy(src.stats.energyPerKill)
+    }
     this.events.push({ e: 'death', x: e.x, y: e.y, enemy: e.def.id, reward })
+    // overload (ARC B4): an enemy dying while it burns discharges around it
+    if (e.dotUntil > this.time && e.dotBurst > 0) {
+      const burner = this.units.find((x) => x.id === e.dotSrc)
+      for (const o of this.enemies)
+        if (o.alive && o !== e && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 <= e.dotBurstRadius ** 2) this.damage(o, e.dotBurst, 'electric', 0, burner)
+      this.events.push({ e: 'burst', x: e.x, y: e.y, r: e.dotBurstRadius })
+    }
     // mark spread (SENTINEL B4): the mark jumps to the nearest enemy within the radius
     if (this.marked(e) && e.markSpread > 0) {
       let best: Enemy | undefined

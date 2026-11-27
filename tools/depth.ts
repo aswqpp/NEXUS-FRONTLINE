@@ -56,7 +56,7 @@ export function play(
   const sim = new Sim(data, 'neon_district', 'normal')
   let i = 0
   const tryUpgrade = (budget: number): boolean => {
-    let best: { id: number; path: PathId; cost: number } | null = null
+    let best: { id: number; path: PathId; cost: number; typeInv: number } | null = null
     // roles: the first `units` units of a type (by placement order) follow role 1, the next follow role 2, ...
     const seen = new Map<string, number>()
     for (const u of sim.units) {
@@ -82,7 +82,10 @@ export function play(
       if (!path) continue
       const st = sim.upgradeStatus(u, path)
       if (st.state !== 'buy' || !st.step || st.step.cost > budget) continue
-      if (!best || st.step.cost < best.cost) best = { id: u.id, path, cost: st.step.cost }
+      // spread investment: upgrade the unit type with the least credits sunk so far, then the cheaper step
+      const typeInv = sim.units.filter((x) => x.def.id === u.def.id).reduce((a, x) => a + x.invested, 0)
+      if (!best || typeInv < best.typeInv || (typeInv === best.typeInv && st.step.cost < best.cost))
+        best = { id: u.id, path, cost: st.step.cost, typeInv }
     }
     if (!best) return false
     return sim.command({ t: 'upgrade', id: best.id, path: best.path })
@@ -121,7 +124,8 @@ export function play(
     by.set(u.def.id, (by.get(u.def.id) ?? 0) + u.damage)
     tot += u.damage
   }
-  return { won: sim.state === 'won', core: sim.core, wave: sim.wave, top: by.size ? Math.max(...by.values()) / Math.max(1, tot) : 0 }
+  if (process.env.SHARE) console.error([...by].map(([k, v]) => `${k} ${(100 * v / tot).toFixed(0)}%`).join(" "), sim.units.map((u) => `${u.def.code}:${u.levels.join("")}`).join(" "))
+  return { won: sim.state === "won", core: sim.core, wave: sim.wave, top: by.size ? Math.max(...by.values()) / Math.max(1, tot) : 0 }
 }
 
 export interface Dist {
